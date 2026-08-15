@@ -1,0 +1,61 @@
+.cq-launcher{position:fixed;right:22px;bottom:22px;z-index:60;display:flex;align-items:center;gap:10px;
+  background:#0f2137;color:#fff;border:0;border-radius:30px;padding:12px 16px;cursor:pointer;
+  font-family:inherit;font-size:13px;box-shadow:0 6px 20px rgba(10,25,45,.28)}
+.cq-launcher:hover{background:#16304f}
+.cq-dot{width:17px;height:17px;border-radius:50%;background:#fff;display:inline-block}
+
+.cq-panel{position:fixed;right:22px;bottom:22px;z-index:61;width:372px;max-width:calc(100vw - 32px);
+  height:508px;max-height:calc(100vh - 40px);background:#fff;border-radius:14px;display:flex;flex-direction:column;
+  box-shadow:0 18px 48px rgba(12,25,45,.26);font-family:inherit;overflow:hidden}
+.cq-panel[hidden]{display:none}
+
+.cq-head{display:flex;align-items:center;gap:10px;padding:13px 14px;border-bottom:1px solid #edeff2}
+.cq-avatar{width:26px;height:26px;border-radius:50%;background:#0f2137;flex:none}
+.cq-id{display:flex;flex-direction:column;line-height:1.3}
+.cq-id strong{font-size:13px;color:#12284c}
+.cq-status{font-size:10px;color:#6b7280;display:flex;align-items:center;gap:5px}
+.cq-status i{width:6px;height:6px;border-radius:50%;background:#12a06b;display:inline-block}
+.cq-close{margin-left:auto;border:0;background:none;color:#98a1ac;font-size:14px;cursor:pointer;padding:4px}
+
+.cq-body{flex:1;overflow-y:auto;padding:16px 14px;display:flex;flex-direction:column;gap:14px}
+.cq-intro h4{margin:4px 0 8px;font-family:Georgia,serif;font-size:22px;color:#12284c;line-height:1.2}
+.cq-intro p{margin:0 0 14px;font-size:11.5px;color:#6b7280;line-height:1.5}
+.cq-chips{display:flex;flex-direction:column;gap:8px}
+.cq-chips button{text-align:left;background:#fff;border:1px solid #e3e6ea;border-radius:8px;padding:9px 11px;
+  font-family:inherit;font-size:12px;color:#25313f;cursor:pointer}
+.cq-chips button:hover{border-color:#0f2137;background:#f7f9fb}
+
+.cq-user{align-self:flex-end;max-width:82%;background:#0f2137;color:#fff;border-radius:14px 14px 4px 14px;
+  padding:9px 13px;font-size:12.5px;line-height:1.45}
+.cq-answer{font-size:12.5px;line-height:1.6;color:#1c2431}
+.cq-answer strong{color:#0f2137}
+.cq-answer sup{color:#0b6b7a;font-weight:700;font-size:9px}
+.cq-refusal{background:#fbf6ec;border:1px solid #ecdcbd;border-radius:9px;padding:10px 12px;font-size:12.5px;color:#6d5620}
+.cq-refusal span{display:block;margin-top:5px;font-size:10.5px;color:#8a7a55}
+
+.cq-cite{border:1px solid #e3e6ea;border-radius:9px;padding:9px 11px;cursor:pointer;background:#fff}
+.cq-cite:hover{border-color:#c9d2dc;background:#fafbfc}
+.cq-cite-top{display:flex;align-items:center;gap:7px}
+.cq-kind{font-size:8.5px;font-weight:700;letter-spacing:.5px;color:#c8102e;border:1px solid #f0c9d0;border-radius:3px;padding:1px 4px}
+.cq-kind.page,.cq-kind.handbook{color:#0b6b7a;border-color:#bfdde2}
+.cq-cite b{font-size:11.5px;color:#12284c;line-height:1.35}
+.cq-cite small{display:block;margin-top:3px;font-size:10px;color:#7c8794}
+.cq-cite-body{display:none;margin-top:8px;padding-top:8px;border-top:1px dashed #e3e6ea;
+  font-size:11px;line-height:1.55;color:#4b5563;white-space:pre-wrap}
+.cq-cite.open .cq-cite-body{display:block}
+
+.cq-typing{display:inline-flex;align-items:center;gap:8px;background:#f1f3f6;border-radius:20px;
+  padding:7px 12px;font-size:11px;color:#6b7280;align-self:flex-start}
+.cq-typing i{width:5px;height:5px;border-radius:50%;background:#98a1ac;display:inline-block;animation:cqb 1s infinite}
+.cq-typing i:nth-child(2){animation-delay:.15s}
+.cq-typing i:nth-child(3){animation-delay:.3s}
+@keyframes cqb{0%,60%,100%{opacity:.3}30%{opacity:1}}
+
+.cq-foot{border-top:1px solid #edeff2;padding:9px 12px 12px}
+.cq-meta{margin:0 0 8px;font-size:9.5px;color:#98a1ac}
+.cq-form{display:flex;gap:8px;align-items:center}
+.cq-form input{flex:1;border:1px solid #e3e6ea;border-radius:20px;padding:9px 13px;font-family:inherit;font-size:12.5px}
+.cq-form input:focus{outline:none;border-color:#0f2137}
+.cq-form button{width:32px;height:32px;border-radius:50%;border:0;background:#0f2137;color:#fff;
+  font-size:14px;cursor:pointer;flex:none}
+.cq-form button:disabled{opacity:.45;cursor:default}
