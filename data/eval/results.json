@@ -1,0 +1,928 @@
+{
+  "generator": "ollama:gemma4:12b",
+  "corpus": {
+    "documents": 22,
+    "chunks": 82,
+    "vectors": 82,
+    "by_kind": {
+      "page": 10,
+      "circular": 11,
+      "handbook": 1
+    },
+    "seed_documents": 22,
+    "uploaded_documents": 0,
+    "last_indexed": "2026-08-15T20:41:43+00:00"
+  },
+  "questions": {
+    "total": 62,
+    "answerable": 50,
+    "offtopic": 12
+  },
+  "ablation": {
+    "bm25": {
+      "hit1": 0.76,
+      "hit5": 0.92,
+      "mrr": 0.8166666666666668,
+      "n": 50
+    },
+    "dense": {
+      "hit1": 0.86,
+      "hit5": 0.96,
+      "mrr": 0.893,
+      "n": 50
+    },
+    "hybrid": {
+      "hit1": 0.8,
+      "hit5": 0.94,
+      "mrr": 0.8616666666666667,
+      "n": 50
+    },
+    "hybrid_rerank": {
+      "hit1": 0.86,
+      "hit5": 0.98,
+      "mrr": 0.915,
+      "n": 50
+    }
+  },
+  "refusals": {
+    "offtopic_total": 12,
+    "offtopic_refused": 11,
+    "leaked": [
+      "What is the syllabus of the IIT Bombay machine learning course?"
+    ],
+    "false_refusals": [
+      "my answer sheet was marked badly, can it be checked again",
+      "How many seats does the AIML department have?"
+    ],
+    "answerable_total": 50
+  },
+  "end_to_end": {
+    "correct": 44,
+    "grounded": 42,
+    "answered": 47,
+    "refused": 3,
+    "median_latency_ms": 5179.075770502095,
+    "p90_latency_ms": 6574.96241699846
+  },
+  "baseline_no_retrieval": {
+    "correct": 0,
+    "grounded": 7
+  },
+  "detail": {
+    "rag": [
+      {
+        "question": "What is the last date to pay the semester fee?",
+        "answer": "The last date for payment of the Semester V tuition fee for all branches is extended to 29 August 2026 [1]. Payments made after 29 August 2026 will attract a late fee of Rs. 500 [2].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer correctly identifies the date and the applicable late fee.",
+        "citations": 2,
+        "latency_ms": 7411.843791000138
+      },
+      {
+        "question": "I missed the deadline for my tuition money, what happens now",
+        "answer": "Students who miss the extended date of 29 August 2026 will not appear on the examination roll list until both the tuition fee and the late fee are cleared [1]. Payments made after 29 August 2026 attract a late fee of Rs. 500 [1]. No further extension will be granted after this date [1].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer accurately reflects the consequences and fees from the reference.",
+        "citations": 1,
+        "latency_ms": 7727.797750005266
+      },
+      {
+        "question": "How much is the late fee if I pay after the last date?",
+        "answer": "Payments made after 29 August 2026 attract a late fee of Rs. 500 [1]. This late fee is charged per student and not per instalment [1].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer accurately reflects the fee amount and calculation rule.",
+        "citations": 1,
+        "latency_ms": 4897.433166996052
+      },
+      {
+        "question": "Where do I pay my fees, can I pay cash at the counter?",
+        "answer": "Payment is accepted only through the student portal under Accounts, Pay Fees [1]. Cash and cheque payments are not accepted at the accounts counter [1].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer accurately reflects the payment method and cash policy.",
+        "citations": 1,
+        "latency_ms": 4673.204083002929
+      },
+      {
+        "question": "When does the KT exam form window close?",
+        "answer": "The KT examination form for the odd semester 2026-27 can be submitted from 12 August 2026 to 26 August 2026 [1]. No form is accepted after 4 September 2026 under any circumstances [2].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer correctly identifies both the standard and final deadlines.",
+        "citations": 2,
+        "latency_ms": 6395.841625002504
+      },
+      {
+        "question": "What is the late fee for submitting the KT form in September?",
+        "answer": "Forms submitted from 1 September to 4 September 2026 attract a late fee of Rs. 700 per subject [1]. No form is accepted after 4 September 2026 under any circumstances [1].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer accurately reflects the dates and fees from the reference.",
+        "citations": 1,
+        "latency_ms": 5657.115166002768
+      },
+      {
+        "question": "How many backlog subjects can I register in one attempt?",
+        "answer": "A student may register a maximum of six KT subjects in one attempt [2].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer correctly states the maximum of six KT subjects.",
+        "citations": 1,
+        "latency_ms": 3425.90620899864
+      },
+      {
+        "question": "How much attendance do I need to sit for the exam?",
+        "answer": "A student must maintain at least 75 percent attendance in every theory and laboratory course to be eligible for the end semester examination [1, 2]. Attendance is counted separately for theory and for laboratory work [2].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer accurately reflects the 75% requirement and separate counting.",
+        "citations": 2,
+        "latency_ms": 4946.326375000353
+      },
+      {
+        "question": "am I allowed to sit for exams if I bunked a lot of lectures",
+        "answer": "To be eligible for the end semester examination, a student must maintain at least 75 percent attendance in every theory and laboratory course [2]. The head of department may condone a shortfall down to 65 percent if a medical certificate or proof of institute approved activity is provided [2]. Students who remain below the required level after condonation are detained in that course and must repeat it [2].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer accurately reflects the attendance, condonation, and detention rules.",
+        "citations": 1,
+        "latency_ms": 7817.961082997499
+      },
+      {
+        "question": "What happens if my attendance is below 65 percent?",
+        "answer": "Condonation below 65 percent is not permitted at the department level [1]. A student who stays below the required level after condonation is detained in that course and repeats it when it is next offered [2].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer accurately reflects the rules for condonation and detention.",
+        "citations": 2,
+        "latency_ms": 5223.972707994108
+      },
+      {
+        "question": "my answer sheet was marked badly, can it be checked again",
+        "answer": "Not available in the college content.",
+        "refused": true,
+        "correct": false,
+        "grounded": true,
+        "why": "refused",
+        "citations": 0,
+        "latency_ms": 84.04012500250246
+      },
+      {
+        "question": "What does revaluation cost per paper?",
+        "answer": "Revaluation costs Rs. 800 per paper [1]. If both a photocopy of an answer book and revaluation are applied for together, the charge is Rs. 1,000 per paper [1].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer accurately reflects the costs for revaluation and combined applications.",
+        "citations": 1,
+        "latency_ms": 5362.619999999879
+      },
+      {
+        "question": "Can I get a photocopy of my answer book?",
+        "answer": "A student who is not satisfied with the result of a theory paper may apply for a photocopy of the answer book [1]. The fee for a photocopy of an answer book is Rs. 400 per paper [2]. Applications are made on the student portal under Examination, Post Result Services [1].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer accurately reflects the procedure, fee, and portal location.",
+        "citations": 2,
+        "latency_ms": 6188.772749999771
+      },
+      {
+        "question": "What documents do I need for hostel allotment?",
+        "answer": "You must bring the allotment letter, a domicile or distance proof, the previous semester mark sheet, one passport photograph, and the fee receipt for the hostel deposit of Rs. 5,000 [1].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer accurately lists all required documents and the deposit amount.",
+        "citations": 1,
+        "latency_ms": 5392.955167000764
+      },
+      {
+        "question": "I stay far away from campus, can I get a room",
+        "answer": "The campus provides separate hostels for men and women [2]. The Student Section, located in Room 12, handles hostel matters [4].",
+        "refused": false,
+        "correct": false,
+        "grounded": false,
+        "why": "The answer mentions information not found in the provided reference text.",
+        "citations": 2,
+        "latency_ms": 4158.330999998725
+      },
+      {
+        "question": "How much does a two seater hostel room cost per year?",
+        "answer": "The annual hostel fee for a two-seater room is Rs. 62,000 for the 2026-27 period [1]. These rooms are also listed as costing Rs. 62,000 per year in the hostel rules and allotment policy [2].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer accurately reflects the fee and dates from the reference.",
+        "citations": 2,
+        "latency_ms": 7142.018042002746
+      },
+      {
+        "question": "When is the last date for the scholarship application?",
+        "answer": "The last date to submit a fresh application for government scholarship, freeship, and the EBC concession for 2026-27 is 30 September 2026 [1]. The last date for renewal is 15 September 2026 [1].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer accurately reflects both the fresh and renewal deadlines.",
+        "citations": 1,
+        "latency_ms": 6574.96241699846
+      },
+      {
+        "question": "What is the income limit for the EBC concession?",
+        "answer": "The EBC concession applies where the annual family income is below Rs. 8,00,000 and the student has no gap year beyond one year [1].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer accurately reflects the income limit and gap year rule.",
+        "citations": 1,
+        "latency_ms": 4658.686499999021
+      },
+      {
+        "question": "What is the new subject code for NLP?",
+        "answer": "Natural Language Processing is now AI5CO3 and was previously AI5CO4 [1].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer correctly identifies the new code as AI5CO3.",
+        "citations": 1,
+        "latency_ms": 3600.0580840045586
+      },
+      {
+        "question": "How many credits does Semester V have now?",
+        "answer": "The total credits for Semester V change from 22 to 21 [1]. The Machine Learning course moves from 4 credits to 3 credits, with one credit shifted to the associated laboratory [1].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer accurately reflects the credit change from 22 to 21.",
+        "citations": 1,
+        "latency_ms": 5166.836208001769
+      },
+      {
+        "question": "When do the theory exams start?",
+        "answer": "Theory examinations for the odd semester begin on 8 December 2026 [1, 3]. For the even semester, theory examinations begin on 3 May 2027 [2].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer correctly identifies both odd and even semester theory dates.",
+        "citations": 3,
+        "latency_ms": 5340.009457999258
+      },
+      {
+        "question": "When do I get my hall ticket?",
+        "answer": "The hall ticket is released on the student portal seven days before the first paper [1]. It is issued only when the tuition fee and the examination fee are cleared [1]. Additionally, library dues must be cleared before the hall ticket for the end semester examination is issued [5].",
+        "refused": false,
+        "correct": true,
+        "grounded": false,
+        "why": "The reference does not mention library dues.",
+        "citations": 2,
+        "latency_ms": 5875.221875001444
+      },
+      {
+        "question": "Can I carry a calculator into the exam hall?",
+        "answer": "Only a non programmable calculator is allowed where the question paper permits it [1]. Mobile phones, smart watches and loose paper are not allowed in the hall [1].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer accurately reflects the specific conditions for calculators.",
+        "citations": 1,
+        "latency_ms": 4396.842709000339
+      },
+      {
+        "question": "What is the BE tuition fee for one year?",
+        "answer": "The B.E. tuition fee is Rs. 1,45,000 per year for the open category [1]. For students holding an approved freeship, the B.E. tuition fee is Rs. 72,500 per year [1].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer accurately reflects both tuition fee categories from the text.",
+        "citations": 1,
+        "latency_ms": 7106.085208004515
+      },
+      {
+        "question": "How much does a transcript cost and how long does it take?",
+        "answer": "An official transcript is issued for higher studies and visa purposes at a fee of Rs. 750 per copy [1, 2]. The issue time for a transcript is ten working days [1].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer accurately reflects the cost and timeframe from the reference.",
+        "citations": 2,
+        "latency_ms": 5326.568833006604
+      },
+      {
+        "question": "How many books can I borrow from the library?",
+        "answer": "An undergraduate student may borrow four books at a time for fourteen days [1]. A postgraduate student may borrow six books for twenty one days [1]. Reference books and the current issue of a journal are for reading in the library only [1].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer accurately reflects the borrowing limits for both student types.",
+        "citations": 1,
+        "latency_ms": 5935.465499998827
+      },
+      {
+        "question": "What is the fine for returning a library book late?",
+        "answer": "The overdue charge is Rs. 5 per book per day [1]. Library dues must be cleared before the hall ticket for the end semester examination is issued [1].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer correctly states the fine and the clearance rule.",
+        "citations": 1,
+        "latency_ms": 5739.201791002415
+      },
+      {
+        "question": "Can I sit for placements with three backlogs?",
+        "answer": "A student with more than two live backlogs is not eligible for the campus process [1]. Therefore, a student with three backlogs would not be eligible.",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer correctly interprets 'more than two' as excluding three backlogs.",
+        "citations": 1,
+        "latency_ms": 4923.289833001036
+      },
+      {
+        "question": "how do I complain if my internal marks look wrong",
+        "answer": "Complaints about internal marks are first raised with the subject teacher and then with the head of department [1]. Alternatively, a student may file a grievance on the portal under Students, Grievance [1] or in writing to the dean of student affairs [3].",
+        "refused": false,
+        "correct": false,
+        "grounded": false,
+        "why": "The mention of 'dean of student affairs' is not in the reference.",
+        "citations": 2,
+        "latency_ms": 6371.498417000112
+      },
+      {
+        "question": "What marks do I need in HSC to apply?",
+        "answer": "A candidate must have passed the higher secondary examination with at least 45 percent marks in Physics, Mathematics and one of Chemistry, Biology, Computer Science or Technical Vocational subject [2].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer accurately reflects the 45 percent requirement for HSC candidates.",
+        "citations": 1,
+        "latency_ms": 5037.195832999714
+      },
+      {
+        "question": "How many seats does the AIML department have?",
+        "answer": "Not available in the college content.",
+        "refused": true,
+        "correct": false,
+        "grounded": true,
+        "why": "refused",
+        "citations": 0,
+        "latency_ms": 409.2502499988768
+      },
+      {
+        "question": "What time does the accounts section open?",
+        "answer": "The Accounts Section is located in Room 104 and handles fees, refunds, and failed transactions [1]. For queries regarding failed transactions, the section is open between 10:00 and 16:00 on working days [2].",
+        "refused": false,
+        "correct": false,
+        "grounded": false,
+        "why": "The reference does not specify specific hours for the Accounts Section.",
+        "citations": 2,
+        "latency_ms": 6241.28191699856
+      },
+      {
+        "question": "Is there a break for the festival in October?",
+        "answer": "The institute is closed from 18 October to 23 October 2026 for the festival break [1].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer accurately reflects the dates and reason provided in the text.",
+        "citations": 1,
+        "latency_ms": 4883.418167002674
+      },
+      {
+        "question": "When does teaching start for the odd semester?",
+        "answer": "Teaching for the odd semester begins on 3 August 2026 [1, 2]. The odd semester runs from August to December 2026 [4].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer correctly identifies the start date from the reference text.",
+        "citations": 3,
+        "latency_ms": 4990.024250000715
+      },
+      {
+        "question": "What is the refundable deposit for a hostel seat?",
+        "answer": "A refundable deposit of Rs. 5,000 is collected at allotment [1, 3]. This deposit is refundable at the end of the academic year after a room condition check [1].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer accurately reflects the amount and conditions from the reference.",
+        "citations": 2,
+        "latency_ms": 5964.122666999174
+      },
+      {
+        "question": "How much is the mess bill every month?",
+        "answer": "Mess charges are billed monthly and average Rs. 4,200 per month [2]. These charges are not part of the annual hostel fee [1].",
+        "refused": false,
+        "correct": true,
+        "grounded": false,
+        "why": "The claim about fees not being part of the annual fee is not in reference.",
+        "citations": 2,
+        "latency_ms": 5191.3153330024215
+      },
+      {
+        "question": "Can I keep a heater in my hostel room?",
+        "answer": "Cooking appliances, heaters and any form of open flame are not permitted in rooms [1].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer accurately reflects the prohibition of heaters in the text.",
+        "citations": 1,
+        "latency_ms": 4012.7181249990826
+      },
+      {
+        "question": "What happens if I miss my document verification slot?",
+        "answer": "A student who misses the allotted slot loses the seat to the waiting list [1].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer accurately reflects the consequence of missing the verification slot.",
+        "citations": 1,
+        "latency_ms": 3787.7997909963597
+      },
+      {
+        "question": "What is the exam fee for a KT laboratory subject?",
+        "answer": "The KT examination fee for a laboratory subject is Rs. 600 [1].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer correctly identifies the fee for a laboratory subject.",
+        "citations": 1,
+        "latency_ms": 4173.983375003445
+      },
+      {
+        "question": "What is the caution deposit for the BE programme?",
+        "answer": "The refundable caution deposit for the B.E. programme is Rs. 10,000 [1].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer correctly identifies the amount from the reference text.",
+        "citations": 1,
+        "latency_ms": 4409.015375000308
+      },
+      {
+        "question": "How much does one year of ME cost?",
+        "answer": "Not available in the college content.",
+        "refused": true,
+        "correct": false,
+        "grounded": true,
+        "why": "refused",
+        "citations": 0,
+        "latency_ms": 3237.568625001586
+      },
+      {
+        "question": "When will I get my revaluation result?",
+        "answer": "The revaluation result is declared within thirty working days of the closing date [1]. The application window closes on the tenth working day after the result is declared [1].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer accurately reflects the timeline and timeframe from the reference.",
+        "citations": 1,
+        "latency_ms": 4950.294832997315
+      },
+      {
+        "question": "Do I get my money back if my marks change after revaluation?",
+        "answer": "The fee is refunded in full if the revised marks differ from the original by ten percent or more of the maximum marks [2]. A revaluation result is final and no second revaluation is permitted for the same paper [1].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer accurately reflects the refund condition and the finality rule.",
+        "citations": 2,
+        "latency_ms": 5610.661832994083
+      },
+      {
+        "question": "What is the punishment for using unfair means in an exam?",
+        "answer": "A case of unfair means is referred to the examination committee. Depending on the finding, the committee may cancel the paper, cancel the full examination, or debar the student from one or more subsequent examinations [1].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer accurately reflects the text under the Unfair means section.",
+        "citations": 1,
+        "latency_ms": 5609.818416000053
+      },
+      {
+        "question": "What do I need to clear to get into third year?",
+        "answer": "To be admitted to the third year, a student must clear all first year subjects and at least half of the second year subjects [1].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer accurately reflects the requirements in Section 4.3.",
+        "citations": 1,
+        "latency_ms": 5051.4453330033575
+      },
+      {
+        "question": "How do I get a duplicate identity card?",
+        "answer": "A lost identity card is replaced upon payment of Rs. 200 and the submission of a copy of the complaint acknowledgement [1, 2]. The replacement is issued within five working days [2].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer accurately reflects the fee, requirement, and timeframe from the text.",
+        "citations": 2,
+        "latency_ms": 5480.72187499929
+      },
+      {
+        "question": "When is the library open on Saturday?",
+        "answer": "The library is open from 09:00 to 14:00 on Saturdays [1]. During the examination period, the reading hall stays open until 23:00 [1].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer accurately reflects the Saturday hours and exam period rules.",
+        "citations": 1,
+        "latency_ms": 5770.314290995884
+      },
+      {
+        "question": "What was the highest package last year?",
+        "answer": "The highest package in the previous year was Rs. 24 lakh per year [1].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer accurately reflects the highest package from the reference text.",
+        "citations": 1,
+        "latency_ms": 4138.349792003282
+      },
+      {
+        "question": "Which entrance exam do I need for the ME programme?",
+        "answer": "Admission to the M.E. programme is through the state postgraduate entrance test [2]. Candidates with a valid GATE score are considered first against the notified seats [2].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer accurately reflects the requirements for the M.E. programme.",
+        "citations": 1,
+        "latency_ms": 5073.283958998218
+      },
+      {
+        "question": "Is the office open on the second Saturday of the month?",
+        "answer": "The office is closed on the second and fourth Saturday of every month [1].",
+        "refused": false,
+        "correct": true,
+        "grounded": true,
+        "why": "The answer accurately reflects the specific closing days mentioned in the text.",
+        "citations": 1,
+        "latency_ms": 3664.060083006916
+      }
+    ],
+    "no_retrieval": [
+      {
+        "question": "What is the last date to pay the semester fee?",
+        "answer": "Please provide the specific institution's name or the relevant policy document. I do not have access to your personal records or specific school information unless you provide those details in the context.",
+        "correct": false,
+        "grounded": false,
+        "why": "The answer fails to provide the date found in the reference."
+      },
+      {
+        "question": "I missed the deadline for my tuition money, what happens now",
+        "answer": "The consequences depend on your specific institution's policies, but you may face late fees, a temporary hold on your account, or a delay in registering for future classes. You should contact the school's bursar or financial aid office immediately to discuss a payment plan or an extension. They can advise you on the specific steps needed to resolve the balance and maintain your enrollment status.",
+        "correct": false,
+        "grounded": false,
+        "why": "The answer uses general advice instead of specific reference details."
+      },
+      {
+        "question": "How much is the late fee if I pay after the last date?",
+        "answer": "To provide an accurate answer, I would need to know the specific terms of your contract, agreement, or service provider's policy. Please check your billing statement or contact the company directly to confirm the exact amount of the late fee.",
+        "correct": false,
+        "grounded": false,
+        "why": "The answer fails to provide the specific fee mentioned in the reference."
+      },
+      {
+        "question": "Where do I pay my fees, can I pay cash at the counter?",
+        "answer": "Please check your specific institution's official website or contact their billing office to confirm the accepted payment methods. Many locations offer a counter for cash payments, but some may only accept credit cards or online payments.",
+        "correct": false,
+        "grounded": false,
+        "why": "The answer ignores the specific portal and cash policy in reference."
+      },
+      {
+        "question": "When does the KT exam form window close?",
+        "answer": "I do not have access to your specific institution's schedule or internal documents to provide the exact date and time. Please check your official academic calendar, student portal, or contact your department coordinator to confirm the deadline.",
+        "correct": false,
+        "grounded": false,
+        "why": "The reference provides specific dates, but the answer claims no access."
+      },
+      {
+        "question": "What is the late fee for submitting the KT form in September?",
+        "answer": "I do not have access to your specific organization's policies or internal documents regarding \"KT forms.\" Please refer to your internal guidelines or contact your supervisor to determine the specific late fee for September.",
+        "correct": false,
+        "grounded": false,
+        "why": "The answer fails to use the provided reference text."
+      },
+      {
+        "question": "How many backlog subjects can I register in one attempt?",
+        "answer": "The number of backlog subjects you can register for in one attempt typically depends on your specific university's academic regulations. You should consult your institution's official academic handbook or contact your registrar's office to confirm the exact limit.",
+        "correct": false,
+        "grounded": false,
+        "why": "The answer fails to state the specific limit of six subjects."
+      },
+      {
+        "question": "How much attendance do I need to sit for the exam?",
+        "answer": "To determine the specific attendance requirement, you should consult your course syllabus or contact your instructor directly. Most institutions have a minimum percentage, such as 75% or 80%, but these rules can vary significantly between departments and institutions.",
+        "correct": false,
+        "grounded": false,
+        "why": "The answer fails to state the specific 75% requirement from the text."
+      },
+      {
+        "question": "am I allowed to sit for exams if I bunked a lot of lectures",
+        "answer": "Whether you are allowed to sit for exams depends entirely on your institution's specific attendance policy. Most universities require a minimum percentage of attendance to qualify for exams, and \"bunking\" too many lectures may result in being barred from sitting for them. You should check your student handbook or consult with your department head to confirm your current status.",
+        "correct": false,
+        "grounded": false,
+        "why": "The answer is too vague and fails to mention the 75% rule."
+      },
+      {
+        "question": "What happens if my attendance is below 65 percent?",
+        "answer": "If your attendance falls below 65 percent, you may be ineligible to sit for your final examinations or receive your final grades. Additionally, your academic status could be flagged, potentially leading to a formal warning or administrative action from the institution. It is highly recommended that you contact your instructor or academic advisor immediately to discuss your situation.",
+        "correct": false,
+        "grounded": false,
+        "why": "Reference states condonation below 65% is not permitted at department level."
+      },
+      {
+        "question": "my answer sheet was marked badly, can it be checked again",
+        "answer": "Yes, you can usually request a re-evaluation or a formal remarking of your answer sheet. You should contact your instructor or the examination board immediately to inquire about their specific procedure and any associated fees.",
+        "correct": false,
+        "grounded": false,
+        "why": "Answer mentions 'instructor' and 'remarking', which are not in reference."
+      },
+      {
+        "question": "What does revaluation cost per paper?",
+        "answer": "Revaluation cost per paper refers to the calculated cost of updating or reassessing the value of a specific document, asset, or piece of paper based on current market conditions or internal standards. It is often used in accounting or inventory management to determine the current worth of physical items or financial instruments. In a manufacturing context, it may specifically refer to the cost of re-evaluating the production value of a single sheet of paper.",
+        "correct": false,
+        "grounded": false,
+        "why": "The answer provides a general definition instead of the specific fee."
+      },
+      {
+        "question": "Can I get a photocopy of my answer book?",
+        "answer": "Whether you can get a photocopy of your answer book depends on the specific policies of your school or examination board. You should contact your instructor or the administrative office to inquire about their rules regarding the reproduction of exam materials.",
+        "correct": false,
+        "grounded": false,
+        "why": "The answer fails to mention the specific procedure and fees provided."
+      },
+      {
+        "question": "What documents do I need for hostel allotment?",
+        "answer": "To secure a hostel allotment, you typically need to provide a valid government-issued ID (such as an Aadhaar card, Passport, or Voter ID) and your college admission letter or fee receipt. Additionally, you may need to submit passport-sized photographs and a signed undertaking or undertaking form from your parents or guardian. It is always best to check with your specific institution's administration for any additional local requirements.",
+        "correct": false,
+        "grounded": false,
+        "why": "The answer includes documents not mentioned in the reference text."
+      },
+      {
+        "question": "I stay far away from campus, can I get a room",
+        "answer": "Whether you can get a room depends on the specific housing policies of your institution and the current availability of on-campus housing. Many universities offer housing to students who live off-campus, but you should contact the housing office to confirm eligibility and apply as soon as possible.",
+        "correct": false,
+        "grounded": false,
+        "why": "The answer is generic and ignores specific distance-based priority rules."
+      },
+      {
+        "question": "How much does a two seater hostel room cost per year?",
+        "answer": "The cost of a two-seater hostel room per year varies significantly depending on the location, amenities, and local economy. In many cities, a long-term stay could range from $3,000 to $10,000 or more annually. To get an accurate estimate, you should contact specific hostels to inquire about their long-term booking rates and discounts.",
+        "correct": false,
+        "grounded": false,
+        "why": "The answer provides generic estimates instead of the specific amount in reference."
+      },
+      {
+        "question": "When is the last date for the scholarship application?",
+        "answer": "Please provide the specific scholarship name or the official documentation for the program you are referring to. I do not have access to your personal documents or specific external websites unless you provide that information in the context. Once you provide the details, I can help you identify the deadline.",
+        "correct": false,
+        "grounded": true,
+        "why": "The answer fails to provide the dates present in the reference."
+      },
+      {
+        "question": "What is the income limit for the EBC concession?",
+        "answer": "The income limit for the EBC (Education Benefit Certificate) concession is typically based on a percentage of the median household income. Specifically, eligibility is often determined by whether a household's income falls below a certain threshold set by the governing educational authority. You should consult the specific guidelines of your local educational board to confirm the exact dollar amount for the current academic year.",
+        "correct": false,
+        "grounded": false,
+        "why": "The answer uses vague terms instead of the specific 8,00,000 limit."
+      },
+      {
+        "question": "What is the new subject code for NLP?",
+        "answer": "I do not have information regarding a specific \"new subject code\" for NLP, as this would depend on the specific educational institution, certification body, or curriculum you are referring to. Please provide the name of the organization or the specific course context so I can help you find the correct code.",
+        "correct": false,
+        "grounded": false,
+        "why": "The reference explicitly states the new code for NLP is AI5CO3."
+      },
+      {
+        "question": "How many credits does Semester V have now?",
+        "answer": "I do not have access to your specific academic records, university handbook, or course catalog. To find out how many credits Semester V has, please check your official student portal or contact your academic advisor.",
+        "correct": false,
+        "grounded": false,
+        "why": "The answer fails to provide the specific credit count from the text."
+      },
+      {
+        "question": "When do the theory exams start?",
+        "answer": "I do not have access to your specific school, university, or organization's schedule. Please check your official academic calendar or contact your instructor to find the exact dates for your theory exams.",
+        "correct": false,
+        "grounded": false,
+        "why": "The reference provides specific dates for theory exams."
+      },
+      {
+        "question": "When do I get my hall ticket?",
+        "answer": "The timing for receiving your hall ticket depends on the specific institution or examination board's regulations. Typically, it is issued a few days before the exam date or made available for download from the official portal once your registration is confirmed. You should check your official admission guidelines or contact the examination authority for the exact date.",
+        "correct": false,
+        "grounded": false,
+        "why": "The answer uses generalities instead of the specific seven-day rule."
+      },
+      {
+        "question": "Can I carry a calculator into the exam hall?",
+        "answer": "Whether you can bring a calculator into the exam hall depends entirely on the specific rules set by your institution or the individual exam board. You should check your admission ticket or syllabus, as some exams permit basic calculators while others forbid them entirely. It is always best to confirm with your instructor or the exam invigilators before the test begins.",
+        "correct": false,
+        "grounded": false,
+        "why": "The answer provides general advice instead of the specific rules provided."
+      },
+      {
+        "question": "What is the BE tuition fee for one year?",
+        "answer": "I do not have information regarding a specific \"BE\" tuition fee as the context does not specify which institution or program you are referring to. To provide an accurate answer, please specify the university or college name.",
+        "correct": false,
+        "grounded": true,
+        "why": "The reference explicitly states the B.E. tuition fee is Rs. 1,45,000."
+      },
+      {
+        "question": "How much does a transcript cost and how long does it take?",
+        "answer": "The cost and processing time for a transcript depend entirely on the specific institution or service provider you use. Generally, fees can range from a small administrative fee to a larger fee for official transcripts, while processing times can vary from a few business days to several weeks. You should contact the specific organization directly to get an accurate quote and estimated timeline.",
+        "correct": false,
+        "grounded": false,
+        "why": "The answer provides general information instead of the specific facts provided."
+      },
+      {
+        "question": "How many books can I borrow from the library?",
+        "answer": "The number of books you can borrow depends on the specific policies of your local library. Most libraries have a set limit on the total number of items you can check out at once, but some may offer higher limits for members with special status. You should check your library card's terms or visit the front desk to confirm your specific limit.",
+        "correct": false,
+        "grounded": false,
+        "why": "The answer provides general advice instead of the specific rules provided."
+      },
+      {
+        "question": "What is the fine for returning a library book late?",
+        "answer": "The fine for returning a library book late varies depending on the specific policies of the local library system. Some libraries charge a daily fee per item, while others may impose a flat fee or replace the item if it is significantly overdue. You should check your local library's website or contact them directly to confirm their specific penalty structure.",
+        "correct": false,
+        "grounded": false,
+        "why": "The answer provides general information instead of the specific Rs. 5 fee."
+      },
+      {
+        "question": "Can I sit for placements with three backlogs?",
+        "answer": "Yes, you can typically sit for placements with three backlogs, as many companies do not have a strict \"zero backlog\" policy during the initial screening. However, some top-tier companies and specific roles may require you to clear all backlogs before the final offer is confirmed or before the joining date. It is advisable to check the specific eligibility criteria of each company and focus on clearing your papers as soon as possible.",
+        "correct": false,
+        "grounded": false,
+        "why": "The reference states students with more than two backlogs are ineligible."
+      },
+      {
+        "question": "how do I complain if my internal marks look wrong",
+        "answer": "To complain about incorrect internal marks, you should first review your graded assignments and the provided marking rubric to identify the specific discrepancy. Then, schedule a meeting or send a formal email to your instructor to request a clarification or review of the grade. When you reach out, provide specific evidence and examples of where you believe the error occurred to facilitate a clear discussion.",
+        "correct": false,
+        "grounded": false,
+        "why": "The answer includes instructions not found in the provided reference text."
+      },
+      {
+        "question": "What marks do I need in HSC to apply?",
+        "answer": "The specific marks required to apply depend entirely on the university and the specific course you are interested in. Most institutions have different entry requirements based on your chosen major, and some may also consider your extracurricular activities or personal statements. You should check the official admission page of your target university to find the exact minimum requirements for your desired program.",
+        "correct": false,
+        "grounded": false,
+        "why": "The answer provides generic advice instead of the specific 45% requirement."
+      },
+      {
+        "question": "How many seats does the AIML department have?",
+        "answer": "I do not have information regarding the specific number of seats in the AIML department. Please provide the relevant context or documentation so I can give you an accurate answer.",
+        "correct": false,
+        "grounded": true,
+        "why": "The reference explicitly states an intake of sixty students."
+      },
+      {
+        "question": "What time does the accounts section open?",
+        "answer": "I do not have information regarding the specific operating hours of your local accounts section. Please check your organization's official website or contact them directly to confirm their opening time.",
+        "correct": false,
+        "grounded": false,
+        "why": "The reference provides general office hours, but the answer claims no information."
+      },
+      {
+        "question": "Is there a break for the festival in October?",
+        "answer": "To provide an accurate answer, I would need to know which specific festival you are referring to. Please provide the name of the event or the location so I can check the schedule for you.",
+        "correct": false,
+        "grounded": true,
+        "why": "The reference confirms a festival break exists without needing more info."
+      },
+      {
+        "question": "When does teaching start for the odd semester?",
+        "answer": "I do not have access to your specific institution's academic calendar or internal records. Please check your university's official website or contact your department's registrar to find the exact start date for the odd semester.",
+        "correct": false,
+        "grounded": false,
+        "why": "The answer fails to provide the date found in the reference."
+      },
+      {
+        "question": "What is the refundable deposit for a hostel seat?",
+        "answer": "The amount of a refundable deposit for a hostel seat varies depending on the specific hostel's policies and location. You should check the booking confirmation or contact the hostel directly to confirm the exact amount and the conditions for its refund.",
+        "correct": false,
+        "grounded": false,
+        "why": "The reference specifies a fixed amount of Rs. 5,000."
+      },
+      {
+        "question": "How much is the mess bill every month?",
+        "answer": "I do not have access to your personal records, contracts, or specific location details to determine the cost of your mess bill. Please check your local agreement or contact the mess management directly to find the exact monthly amount.",
+        "correct": false,
+        "grounded": false,
+        "why": "The answer fails to provide the specific amount mentioned in the reference."
+      },
+      {
+        "question": "Can I keep a heater in my hostel room?",
+        "answer": "Whether you can keep a heater in your hostel room depends entirely on your specific institution's safety regulations and housing policies. Most hostels prohibit portable space heaters due to fire hazards, so you should check your housing handbook or ask your warden before bringing one. If allowed, you must ensure the device is certified and used safely according to the provided guidelines.",
+        "correct": false,
+        "grounded": false,
+        "why": "The answer uses general advice instead of the specific provided rules."
+      },
+      {
+        "question": "What happens if I miss my document verification slot?",
+        "answer": "If you miss your document verification slot, your application may be delayed or put on hold until you can reschedule. Depending on the specific organization's policy, you may need to contact their support team or log into their portal to book a new appointment. In some cases, missing a slot without notice could result in a cancellation of your application.",
+        "correct": false,
+        "grounded": false,
+        "why": "The reference states the seat is lost to the waiting list."
+      },
+      {
+        "question": "What is the exam fee for a KT laboratory subject?",
+        "answer": "The exam fee for a KT laboratory subject is not specified in the provided information. Please refer to your institution's official academic handbook or contact the department office for the exact fee.",
+        "correct": false,
+        "grounded": true,
+        "why": "The reference explicitly states the fee is Rs. 600."
+      },
+      {
+        "question": "What is the caution deposit for the BE programme?",
+        "answer": "I do not have information regarding a \"BE programme\" caution deposit in my internal knowledge. To provide an accurate answer, please provide the specific context or documentation regarding the program you are referring to.",
+        "correct": false,
+        "grounded": true,
+        "why": "The reference explicitly states the caution deposit is Rs. 10,000."
+      },
+      {
+        "question": "How much does one year of ME cost?",
+        "answer": "The cost of one year of ME (Master of Engineering) programs varies significantly depending on the specific university and location. Tuition fees can range from approximately $30,000 to over $60,000 per year in the United States, while international programs may have different pricing structures. It is best to check the official website of the specific institution to get an accurate estimate of total costs, including fees and living expenses.",
+        "correct": false,
+        "grounded": false,
+        "why": "The answer uses external information and incorrect currency/values."
+      },
+      {
+        "question": "When will I get my revaluation result?",
+        "answer": "I do not have access to your personal records, academic institution, or specific examination details. You should contact your school, university, or the relevant examination board directly to inquire about the specific timeline for your revaluation results.",
+        "correct": false,
+        "grounded": true,
+        "why": "The answer fails to mention the 30 working days timeline."
+      },
+      {
+        "question": "Do I get my money back if my marks change after revaluation?",
+        "answer": "Whether you receive a refund depends entirely on the specific policies of the examining body or institution. In most cases, revaluation fees are non-refundable regardless of whether your marks increase or decrease. You should check the official guidelines of your specific institution to confirm their policy.",
+        "correct": false,
+        "grounded": false,
+        "why": "The answer fails to mention the specific 10% refund condition."
+      },
+      {
+        "question": "What is the punishment for using unfair means in an exam?",
+        "answer": "The punishment for using unfair means in an exam typically includes immediate disqualification from the test and the forfeiture of the marks for that specific paper. Depending on the severity of the offense, students may also face disciplinary actions such as suspension, expulsion, or a formal mark of \"zero\" on their academic record.",
+        "correct": false,
+        "grounded": false,
+        "why": "The answer includes specific penalties not mentioned in the reference text."
+      },
+      {
+        "question": "What do I need to clear to get into third year?",
+        "answer": "To determine what you need to clear, you should consult your specific academic handbook or department guidelines. Generally, you must successfully complete all required prerequisite courses and maintain a minimum cumulative GPA as defined by your institution. You may also need to fulfill specific credit hour requirements or complete any mandatory internships or examinations.",
+        "correct": false,
+        "grounded": false,
+        "why": "The answer provides general advice instead of specific handbook requirements."
+      },
+      {
+        "question": "How do I get a duplicate identity card?",
+        "answer": "To obtain a duplicate identity card, you typically need to visit the issuing government agency or local municipal office with a formal application form. You will generally need to provide supporting documents, such as a police report if the card was lost or stolen, along with proof of identity and residency. Some jurisdictions also allow you to request a replacement online through an official government portal.",
+        "correct": false,
+        "grounded": false,
+        "why": "The answer provides external information not found in the provided reference."
+      },
+      {
+        "question": "When is the library open on Saturday?",
+        "answer": "I do not have information about a specific library's hours because you haven't provided a location or name. Please provide the name of the library or its location so I can check the details for you.",
+        "correct": false,
+        "grounded": false,
+        "why": "The answer fails to use the provided reference text."
+      },
+      {
+        "question": "What was the highest package last year?",
+        "answer": "I do not have access to your personal records, financial data, or specific company information to determine what the highest package was last year. If you can provide the relevant context or data, I can help you analyze it.",
+        "correct": false,
+        "grounded": false,
+        "why": "The answer fails to provide the correct figure from the reference."
+      },
+      {
+        "question": "Which entrance exam do I need for the ME programme?",
+        "answer": "To determine which entrance exam you need for the ME (Master of Engineering) programme, you must check the specific requirements of the university and department you are applying to. Most programs require standardized tests such as the GRE or GMAT, but some may also require specific proficiency exams like the TOEFL or IELTS for non-native speakers. I recommend consulting the official admissions page of your target institution for the most accurate information.",
+        "correct": false,
+        "grounded": false,
+        "why": "The answer mentions GRE/GMAT/TOEFL instead of the state postgraduate entrance test."
+      },
+      {
+        "question": "Is the office open on the second Saturday of the month?",
+        "answer": "I do not have access to your specific office's schedule or location. Please check your organization's official website or contact them directly to confirm their hours for the second Saturday of the month.",
+        "correct": false,
+        "grounded": false,
+        "why": "The answer fails to use the provided reference text to answer."
+      }
+    ]
+  },
+  "note": "retrieval measured on the final 22 document corpus; judged answers measured on the same questions before two scanned notices were added"
+}

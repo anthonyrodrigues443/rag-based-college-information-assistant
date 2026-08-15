@@ -7,7 +7,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import config, generate, ingest, llm, models
+from . import config, generate, ingest, llm, models, scheduler
 from .store import store
 
 app = FastAPI(title="CampusQuery", version="1.0")
@@ -47,6 +47,12 @@ def require_admin(x_admin_token: str = Header(default="")):
 @app.on_event("startup")
 def startup():
     models.warmup()
+    scheduler.start()
+
+
+@app.on_event("shutdown")
+def shutdown():
+    scheduler.stop()
 
 
 # ------------------------------------------------------------------ public site
@@ -69,6 +75,7 @@ def health():
         "provider": llm.provider(),
         "embedder": config.EMBED_MODEL,
         "reranker": config.RERANK_MODEL if config.USE_RERANKER else None,
+        "refresh": {k: scheduler.state[k] for k in ("enabled", "interval_hours", "last_run", "next_run")},
     }
 
 
@@ -123,6 +130,7 @@ def chat(request: ChatRequest):
 def admin_status(_=Depends(require_admin)):
     return {
         "stats": store.stats(),
+        "refresh": scheduler.state,
         "documents": sorted(store.docs.values(), key=lambda d: d.get("indexed_at", ""), reverse=True),
     }
 
@@ -175,6 +183,12 @@ def ingest_raw_text(request: TextRequest, _=Depends(require_admin)):
         key=f"pasted:{title}", origin="upload", kind="page",
     )
     return {"results": [result], "stats": store.stats()}
+
+
+@app.post("/api/admin/refresh")
+def refresh_now(_=Depends(require_admin)):
+    """Run the scheduled refresh immediately instead of waiting for the timer."""
+    return scheduler.refresh()
 
 
 @app.post("/api/admin/reindex-seed")

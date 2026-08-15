@@ -59,6 +59,10 @@ RERANK_WEIGHT = float(env("RERANK_WEIGHT", 0.6))
 REFUSAL_THRESHOLD = float(env("REFUSAL_THRESHOLD", -6.0))
 REFUSAL_TEXT = "Not available in the college content."
 
+# Scheduled refresh: re-read seed files, re-fetch indexed URLs, drop stale documents.
+REINDEX_ENABLED = env("REINDEX_ENABLED", "1") == "1"
+REINDEX_INTERVAL_HOURS = float(env("REINDEX_INTERVAL_HOURS", 168))
+
 HISTORY_TURNS = int(env("HISTORY_TURNS", 4))
 ADMIN_TOKEN = env("ADMIN_TOKEN", "campusquery-demo")
 USE_RERANKER = env("USE_RERANKER", "1") == "1"

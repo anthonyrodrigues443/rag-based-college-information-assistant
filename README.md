@@ -60,20 +60,41 @@ therefore says nothing about whether the corpus covers the question at all.
 
 ## Evaluation
 
-`scripts/eval.py` holds 40 labelled questions: 32 answerable, each tagged with the document
-that actually contains the answer, and 8 off-topic ones that must be refused.
+`scripts/eval.py` and `scripts/eval_full.py` hold 62 labelled questions:
+50 answerable, each tagged with the document that actually contains the answer, and 12
+off-topic ones that must be refused.
 
 ```bash
-./.venv/bin/python scripts/eval.py            # current settings
-./.venv/bin/python scripts/eval.py --sweep    # compare re-ranker weights
+./.venv/bin/python scripts/eval.py                 # quick retrieval check
+./.venv/bin/python scripts/eval_full.py            # ablation, baselines, latency, judged answers
+./.venv/bin/python scripts/eval_full.py --retrieval-only
 ```
 
-Measured on the 20-document seed corpus:
+Retrieval, same 50 questions through four configurations:
 
-| | Hit@1 | Hit@5 | MRR | off-topic refused | false refusals |
-|---|---|---|---|---|---|
-| pure cross-encoder ordering | 0.81 | 1.00 | 0.89 | 8/8 | 7/32 |
-| blended ordering, raw-score refusal | 0.84 | 1.00 | 0.90 | 8/8 | 2/32 |
+| Configuration | Hit@1 | Hit@5 | MRR |
+|---|---|---|---|
+| BM25 only | 0.76 | 0.92 | 0.82 |
+| Dense only (MiniLM) | 0.86 | 0.96 | 0.89 |
+| Hybrid, RRF fused | 0.80 | 0.94 | 0.86 |
+| Hybrid + cross-encoder re-rank | 0.86 | 0.98 | 0.92 |
+
+Fusing BM25 into dense retrieval lowers Hit@1 on its own, from 0.86 to
+0.80: it adds recall by catching exact codes, and adds noise to the top rank.
+The cross-encoder is what recovers it.
+
+Answers, marked by a second LLM pass against the source text. Correct means it states what the
+source says with the right numbers and dates. Grounded means every fact in it appears in that source.
+
+| System | Correct | Grounded |
+|---|---|---|
+| CampusQuery | 44/50 | 42/47 |
+| Same model, no retrieval | 0/50 | 7/50 |
+
+Refusals: 11/12 off-topic questions refused,
+2/50 answerable questions wrongly refused.
+Latency on a local 12B model: median 5.2 s, 90th percentile
+6.6 s.
 
 ## Layout
 
@@ -86,11 +107,12 @@ app/
   ingest.py     extract from pdf/html/md/txt/url, chunk, embed, add to the index
   retrieve.py   hybrid search, fusion, re-ranking, refusal decision
   llm.py        Groq or Ollama behind one interface
+  scheduler.py  weekly refresh: re-read seed files, re-fetch URLs, drop stale documents
   generate.py   prompt, citations, refusal, conversation rewrite
   main.py       FastAPI routes
 web/            demo college site, chat widget, admin console (plain HTML, CSS, JS)
-data/seed/      the demo college's documents, 20 markdown files with front matter
-scripts/        make_seed.py, eval.py
+data/seed/      the demo college's documents: 20 markdown files plus 2 scanned PDFs read by OCR
+scripts/        make_seed.py, make_scans.py, eval.py, eval_full.py, make_chart.py, update_deck.py
 ```
 
 ## API
@@ -104,6 +126,7 @@ scripts/        make_seed.py, eval.py
 | `POST /api/admin/ingest/files` | token | Multipart upload: pdf, html, md, txt. 20 MB per file |
 | `POST /api/admin/ingest/urls` | token | Fetch and index web pages |
 | `POST /api/admin/ingest/text` | token | Index pasted text |
+| `POST /api/admin/refresh` | token | Run the scheduled refresh now |
 | `POST /api/admin/reindex-seed` | token | Wipe and rebuild from `data/seed` |
 | `DELETE /api/admin/document/{id}` | token | Remove one document from the index |
 
@@ -112,8 +135,8 @@ the app anywhere.
 
 ## Known limits
 
-- The index rebuild is manual. There is no scheduler yet, so a changed page is not picked up
-  until someone re-indexes it.
+- The scheduled refresh re-reads seed files and re-fetches indexed URLs, but it does not
+  discover new pages on its own. A real deployment would crawl, not just refresh what it knows.
 - OCR runs only when a PDF page has almost no extractable text. It has not been tested against
   a large batch of real scanned notices.
 - `data/index` is rebuilt in full when a document is deleted. Fine at this scale, not at 100k chunks.

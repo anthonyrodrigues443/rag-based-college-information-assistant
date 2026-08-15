@@ -103,16 +103,26 @@ def index_text(text: str, *, title: str, source: str, key: str = None, origin="u
         return {"title": title, "chunks": 0, "skipped": "nothing to index"}
 
     vectors = models.encode([c["text"] for c in chunks])
-    meta = {"title": title, "source": source, "url": url, "kind": kind,
-            "date": date, "origin": origin, "words": len(text.split())}
+    meta = {"title": title, "source": source, "key": key or source, "url": url,
+            "kind": kind, "date": date, "origin": origin, "words": len(text.split())}
     added = store.add_document(doc_id_for(key or source), meta, chunks, vectors)
     store.save()
     return {"title": title, "chunks": added, "words": meta["words"]}
 
 
+def sidecar(path: Path) -> dict:
+    """A scanned PDF carries no front matter, so `<name>.meta.json` supplies its title."""
+    companion = path.with_suffix(".meta.json")
+    if companion.exists():
+        import json
+        return json.loads(companion.read_text(encoding="utf-8"))
+    return {}
+
+
 def index_file(path: Path, *, origin="upload", kind=None):
     text = extract(path)
     meta, body = parse_front_matter(text) if path.suffix.lower() in (".md", ".txt") else ({}, text)
+    meta = {**sidecar(path), **meta}
     title = meta.get("title") or path.stem.replace("-", " ").replace("_", " ").title()
     return index_text(
         body,
@@ -136,6 +146,7 @@ def reindex_seed():
     """Wipe and rebuild the demo college corpus from data/seed."""
     store.reset()
     results = []
-    for path in sorted(config.SEED_DIR.glob("*.md")):
+    paths = sorted(list(config.SEED_DIR.glob("*.md")) + list(config.SEED_DIR.glob("*.pdf")))
+    for path in paths:
         results.append(index_file(path, origin="seed"))
     return results
