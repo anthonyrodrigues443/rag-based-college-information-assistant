@@ -11,5 +11,5 @@ PyMuPDF>=1.24
 beautifulsoup4>=4.12
 httpx>=0.27
 groq>=0.11
-pytesseract>=0.3.10
+pytesseract>=0.3.10        # needs the tesseract binary too: brew install tesseract
 Pillow>=10.0

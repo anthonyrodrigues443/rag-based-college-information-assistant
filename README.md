@@ -22,6 +22,17 @@ cp .env.example .env       # already done if .env exists
 `run.sh` creates the venv, builds the index from `data/seed` on first run, and starts the server.
 First start takes about 25 seconds because the embedding and re-ranking models load into memory.
 
+One system dependency is not installed by pip: the **tesseract** binary, used to read the two
+scanned notices in the seed corpus.
+
+```bash
+brew install tesseract        # macOS
+sudo apt install tesseract-ocr # Debian or Ubuntu
+```
+
+Without it the index builds with 20 documents and 80 chunks instead of 22 and 82, and the two
+scanned notices are reported as skipped with the reason.
+
 ### Generation
 
 The generator is pluggable and chosen by `LLM_PROVIDER` in `.env`:

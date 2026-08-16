@@ -8,6 +8,7 @@ from . import chunking, config, models
 from .store import store
 
 FRONT_MATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.S)
+_ocr_failure = None            # why the last OCR attempt failed, so it is not swallowed
 STRIP_TAGS = ("script", "style", "nav", "header", "footer", "aside", "form", "noscript")
 
 
@@ -57,14 +58,21 @@ def text_from_pdf(path: Path) -> str:
 
 
 def ocr_page(page) -> str:
+    """OCR needs the tesseract binary, which pip does not install. If it is missing
+    the reason is recorded rather than swallowed, so a scanned document is not
+    dropped silently."""
+    global _ocr_failure
     try:
         import pytesseract
         from PIL import Image
         import io
         pix = page.get_pixmap(dpi=200)
         image = Image.open(io.BytesIO(pix.tobytes("png")))
-        return pytesseract.image_to_string(image).strip()
-    except Exception:
+        text = pytesseract.image_to_string(image).strip()
+        _ocr_failure = None
+        return text
+    except Exception as exc:
+        _ocr_failure = str(exc)
         return ""
 
 
@@ -96,7 +104,11 @@ def index_text(text: str, *, title: str, source: str, key: str = None, origin="u
     URL); `source` is the human label shown in a citation and is not unique."""
     text = chunking.clean_text(text)
     if len(text.split()) < config.MIN_CHUNK_WORDS:
-        return {"title": title, "chunks": 0, "skipped": "document has too little text"}
+        reason = "document has too little text"
+        if _ocr_failure:
+            reason += (f". This looks like a scan and OCR is unavailable: {_ocr_failure}. "
+                       "Install the tesseract binary, for example: brew install tesseract")
+        return {"title": title, "chunks": 0, "skipped": reason}
 
     chunks = chunking.chunk_document(text, title)
     if not chunks:
