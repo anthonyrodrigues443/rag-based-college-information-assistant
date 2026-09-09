@@ -13,6 +13,8 @@ from .store import store
 app = FastAPI(title="CampusQuery", version="1.0")
 app.mount("/static", StaticFiles(directory=config.WEB_DIR / "static"), name="static")
 
+FAVICON = config.WEB_DIR / "static" / "favicon.ico"
+
 ALLOWED_SUFFIXES = {".pdf", ".txt", ".md", ".html", ".htm"}
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 
@@ -66,6 +68,18 @@ def admin_page():
     return FileResponse(config.WEB_DIR / "admin.html")
 
 
+@app.get("/source/{doc_id}")
+def source_page(doc_id: str):
+    """A citation has to lead somewhere a student can read the whole policy."""
+    return FileResponse(config.WEB_DIR / "source.html")
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    """Browsers ask for this on every page load whether or not it is linked."""
+    return FileResponse(FAVICON, media_type="image/x-icon")
+
+
 @app.get("/api/health")
 def health():
     return {
@@ -98,6 +112,26 @@ def notices():
     return {"items": items, "total": len(items), "stats": store.stats()}
 
 
+@app.get("/api/site/document/{doc_id}")
+def site_document(doc_id: str):
+    """The complete indexed text behind a citation. Public, because a citation a visitor
+    cannot open is not a citation."""
+    doc = store.docs.get(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="No such document")
+    return {
+        "doc_id": doc_id,
+        "title": doc.get("title", ""),
+        "kind": doc.get("kind", "page"),
+        "date": doc.get("date", ""),
+        "source": doc.get("source", ""),
+        "url": doc.get("url", ""),
+        "origin": doc.get("origin", ""),
+        "indexed_at": doc.get("indexed_at", ""),
+        "text": ingest.document_text(doc),
+    }
+
+
 @app.post("/api/chat")
 def chat(request: ChatRequest):
     question = request.question.strip()
@@ -112,6 +146,9 @@ def chat(request: ChatRequest):
         "refused": result["refused"],
         "citations": result["citations"],
         "mode": result["mode"],
+        "degraded": result["degraded"],
+        "retrieval_ms": result["retrieval_ms"],
+        "generation_ms": result["generation_ms"],
         "latency_ms": result["latency_ms"],
     }
     if request.debug:
