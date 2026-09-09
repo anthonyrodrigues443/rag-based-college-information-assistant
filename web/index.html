@@ -4,20 +4,21 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Institute of Engineering &amp; Technology</title>
+<link rel="icon" href="/static/favicon.ico" sizes="any">
 <link rel="stylesheet" href="/static/site.css">
 <link rel="stylesheet" href="/static/widget.css">
 </head>
 <body>
 
-<div class="utility">
+<section class="utility" aria-label="Site utilities">
   <div class="wrap">
-    <nav class="utility-links">
+    <nav class="utility-links" aria-label="Utility">
       <a href="#main">Skip to main content</a><a href="#">Screen Reader Access</a><a href="#">Site Map</a>
       <a href="#">RTI</a><a href="#">Anti-Ragging</a><a href="#">Grievance</a>
     </nav>
     <div class="utility-right"><span>A- A A+</span><span class="sep">|</span><span>English | हिंदी</span></div>
   </div>
-</div>
+</section>
 
 <header class="masthead">
   <div class="wrap">
@@ -33,7 +34,7 @@
   </div>
 </header>
 
-<nav class="mainnav">
+<nav class="mainnav" aria-label="Main">
   <div class="wrap">
     <a href="#">About Us <i>▾</i></a><a href="#">Academics <i>▾</i></a><a href="#">Departments <i>▾</i></a>
     <a href="#">Admissions <i>▾</i></a><a href="#">Students <i>▾</i></a><a href="#">Examination <i>▾</i></a>
@@ -41,7 +42,7 @@
   </div>
 </nav>
 
-<div class="ticker">
+<section class="ticker" aria-label="Latest updates">
   <div class="wrap">
     <span class="tag">LATEST</span>
     <div class="ticker-items">
@@ -51,21 +52,21 @@
       <a href="#">Scholarship verification schedule</a>
     </div>
   </div>
-</div>
+</section>
 
-<section class="hero">
+<section class="hero" aria-labelledby="hero-heading">
   <span class="photo-note">campus photo</span>
   <div class="wrap">
     <div class="hero-card">
-      <h2>Sixty Years of Engineering Education</h2>
+      <h2 id="hero-heading">Sixty Years of Engineering Education</h2>
       <p>Eight departments · Undergraduate, postgraduate and doctoral programmes</p>
     </div>
   </div>
 </section>
 
 <main id="main" class="wrap layout">
-  <aside class="col-left">
-    <h3>QUICK LINKS</h3>
+  <aside class="col-left" aria-labelledby="quicklinks-heading">
+    <h3 id="quicklinks-heading">QUICK LINKS</h3>
     <ul class="quicklinks">
       <li><a href="#">Academic Calendar 2026-27</a></li>
       <li><a href="#">Fee Structure (PDF)</a></li>
@@ -90,8 +91,8 @@
     <div class="pager"><a href="#">‹ PREV</a><b>1</b><a href="#">2</a><a href="#">3</a><span>…</span><a href="#">19</a><a href="#">NEXT ›</a></div>
   </section>
 
-  <aside class="col-right">
-    <h3>EVENTS</h3>
+  <aside class="col-right" aria-labelledby="events-heading">
+    <h3 id="events-heading">EVENTS</h3>
     <ul class="events">
       <li><span class="date"><b>21</b>AUG</span><p>Industry expert lecture: retrieval systems at scale</p></li>
       <li><span class="date"><b>26</b>AUG</span><p>Department project review — Semester V</p></li>
@@ -112,7 +113,7 @@
 <!-- CampusQuery widget -->
 <button id="cq-launcher" class="cq-launcher" aria-expanded="false">Ask CampusQuery <span class="cq-dot"></span></button>
 
-<section id="cq-panel" class="cq-panel" hidden aria-live="polite">
+<section id="cq-panel" class="cq-panel" hidden aria-live="polite" aria-label="CampusQuery assistant">
   <header class="cq-head">
     <div class="cq-avatar"></div>
     <div class="cq-id">
@@ -144,6 +145,7 @@
   </footer>
 </section>
 
+<script src="/static/dates.js"></script>
 <script src="/static/widget.js"></script>
 </body>
 </html>
