@@ -17,7 +17,8 @@ OUT = ROOT / "data" / "eval" / "retrieval_chart.png"
 
 INK, TEAL, SEA, AMBER, MUTED, LINE = "#0B3B3C", "#028090", "#00A896", "#F4A259", "#5E7472", "#CFE3E1"
 ORDER = [("bm25", "BM25\nonly"), ("dense", "Dense\nonly"),
-         ("hybrid", "Hybrid\n(RRF fused)"), ("hybrid_rerank", "Hybrid +\nre-rank")]
+         ("hybrid", "Hybrid\n(RRF fused)"), ("hybrid_rerank", "Hybrid +\nre-rank"),
+         ("pipeline", "Shipped\npipeline")]
 
 
 def main():
@@ -25,9 +26,10 @@ def main():
     abl = data["ablation"]
     n = data["questions"]["answerable"]
 
-    labels = [label for _, label in ORDER]
-    hit1 = [abl[key]["hit1"] for key, _ in ORDER]
-    hit5 = [abl[key]["hit5"] for key, _ in ORDER]
+    order = [(key, label) for key, label in ORDER if key in abl]
+    labels = [label for _, label in order]
+    hit1 = [abl[key]["hit1"] for key, _ in order]
+    hit5 = [abl[key]["hit5"] for key, _ in order]
 
     fig, ax = plt.subplots(figsize=(6.0, 3.94), dpi=260)
     x = range(len(labels))
@@ -64,7 +66,7 @@ def main():
     fig.tight_layout()
     fig.savefig(OUT, facecolor="white")
     print(f"wrote {OUT}")
-    for (key, label), a, b in zip(ORDER, hit1, hit5):
+    for (key, label), a, b in zip(order, hit1, hit5):
         print(f"  {label.replace(chr(10), ' '):<22} Hit@1 {a:.2f}   Hit@5 {b:.2f}")
 
 

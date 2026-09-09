@@ -2,10 +2,6 @@ import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-DATA = ROOT / "data"
-SEED_DIR = DATA / "seed"
-INDEX_DIR = DATA / "index"
-UPLOAD_DIR = DATA / "uploads"
 WEB_DIR = ROOT / "web"
 
 
@@ -30,6 +26,12 @@ def env(key: str, default=None):
     return value if value not in (None, "") else default
 
 
+# Overridable so a test run, or a second instance, can keep its own corpus and index.
+DATA = Path(env("DATA_DIR", ROOT / "data"))
+SEED_DIR = Path(env("SEED_DIR", DATA / "seed"))
+INDEX_DIR = Path(env("INDEX_DIR", DATA / "index"))
+UPLOAD_DIR = Path(env("UPLOAD_DIR", DATA / "uploads"))
+
 EMBED_MODEL = env("EMBED_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
 RERANK_MODEL = env("RERANK_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
 EMBED_DIM = 384
@@ -43,6 +45,11 @@ GROQ_MODEL = env("GROQ_MODEL", "llama-3.1-8b-instant")
 OLLAMA_HOST = env("OLLAMA_HOST", "http://localhost:11434").rstrip("/")
 OLLAMA_MODEL = env("OLLAMA_MODEL", "gemma4:12b")
 OLLAMA_TIMEOUT = float(env("OLLAMA_TIMEOUT", 120))
+
+# How long a student waits for the generator before the answer is served from the
+# retrieved text instead. A local model that has not answered in this long is not going
+# to feel interactive, and the extractive answer is already correct and cited.
+GEN_TIMEOUT = float(env("GEN_TIMEOUT", 30))
 
 CHUNK_WORDS = int(env("CHUNK_WORDS", 300))
 CHUNK_OVERLAP_WORDS = int(env("CHUNK_OVERLAP_WORDS", 45))

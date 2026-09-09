@@ -1,8 +1,12 @@
 """Hybrid retrieval: BM25 + dense, fused by reciprocal rank, then re-ranked."""
 import math
 
-from . import config, models
+from . import config, models, query
 from .store import store
+
+
+# How far a programme match moves a candidate, on the same 0-1 scale as `score`.
+PROGRAMME_WEIGHT = 0.3
 
 
 def sigmoid(x: float) -> float:
@@ -24,9 +28,15 @@ def search(question: str, top_n: int = None):
     if not store.chunks:
         return [], {"dense": 0, "bm25": 0, "fused": 0, "reranked": False}
 
-    vector = models.encode([question])[0]
+    # Every stage sees the expanded question: BM25 needs the corpus's own words, the
+    # embedder needs more than a two-letter token, and the cross-encoder scores the
+    # answer-bearing passage far higher once the abbreviation is spelled out.
+    expanded = query.expand(question)
+    asked = query.entities(question)
+
+    vector = models.encode([expanded])[0]
     dense = store.dense_search(vector, config.TOP_K_DENSE)
-    lexical = store.bm25_search(question, config.TOP_K_BM25)
+    lexical = store.bm25_search(expanded, config.TOP_K_BM25)
     fused = reciprocal_rank_fusion(dense, lexical)
 
     dense_scores = dict(dense)
@@ -43,7 +53,7 @@ def search(question: str, top_n: int = None):
         # room", "bunked lectures"): it buries the right chunk that dense retrieval
         # already had at rank 1. Blending it with the fusion rank keeps its precision
         # without letting it override retrieval on its own.
-        raw = models.rerank_scores(question, [c["text"] for c in candidates])
+        raw = models.rerank_scores(expanded, [c["text"] for c in candidates])
         best_rrf = max(c["rrf"] for c in candidates) or 1.0
         for candidate, score in zip(candidates, raw):
             candidate["rerank"] = round(score, 4)
@@ -52,21 +62,56 @@ def search(question: str, top_n: int = None):
                 + (1 - config.RERANK_WEIGHT) * (candidate["rrf"] / best_rrf),
                 4,
             )
-        candidates.sort(key=lambda c: c["score"], reverse=True)
         reranked = True
     else:
         best_rrf = max(c["rrf"] for c in candidates) or 1.0
         for candidate in candidates:
             candidate["score"] = round(candidate["rrf"] / best_rrf, 4)
 
+    # A section about the B.E. fee is a good match for any fee question, which is how a
+    # question about the M.E. ends up answered with undergraduate rates. Ordering has to
+    # know that the passage is about a different programme from the one asked about.
+    for candidate in candidates:
+        candidate["entity"] = query.programme_alignment(candidate["text"], asked["programme"])
+        candidate["score"] = round(candidate["score"] + PROGRAMME_WEIGHT * candidate["entity"], 4)
+    candidates.sort(key=lambda c: c["score"], reverse=True)
+
     debug = {
         "dense": len(dense),
         "bm25": len(lexical),
         "fused": len(fused),
         "reranked": reranked,
+        "expanded": expanded if expanded != question else None,
+        "programme": sorted(asked["programme"]),
+        "institutions": asked["institution"],
         "top_score": candidates[0]["score"] if candidates else None,
     }
     return candidates[:top_n], debug
+
+
+def unsupported(question: str, results):
+    """Why the retrieved content cannot answer this question, or None when it can.
+
+    A high retrieval score means the passage looks like the question, not that it is
+    about the same thing. "The syllabus of the IIT Bombay machine learning course"
+    retrieves this college's own syllabus revision at a comfortable score, and citing it
+    presents another institution's course as answered. So the entities the student named
+    are checked against what actually came back before the score is consulted at all.
+    """
+    if not results:
+        return "nothing was retrieved"
+
+    asked = query.entities(question)
+    for name in asked["institution"]:
+        if not any(query.mentions(f"{r['title']} {r['text']}", name) for r in results):
+            return f"the indexed content does not describe {name}"
+
+    if asked["programme"] and all(r.get("entity") == -1 for r in results):
+        return "every retrieved section is about a different programme"
+
+    if below_threshold(results):
+        return "nothing retrieved is a close enough match"
+    return None
 
 
 def below_threshold(results) -> bool:
