@@ -5,3 +5,4 @@ __pycache__/
 data/index/
 data/uploads/
 .DS_Store
+.pytest_cache/
