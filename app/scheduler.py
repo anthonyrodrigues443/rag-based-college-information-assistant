@@ -2,8 +2,10 @@
 
 A college page changes and nobody tells the assistant, so the corpus is refreshed
 on a schedule: seed files are re-read, indexed URLs are re-fetched, and documents
-whose source has disappeared are dropped. Uploaded documents are left alone, so a
-refresh never destroys work done in the admin console.
+whose source has disappeared are dropped. Uploaded files are left alone, so a refresh
+never destroys work done in the admin console; an indexed URL that answers 404 or 410
+is withdrawn at the source and is removed, because serving it would present withdrawn
+information as current. A transient failure only records an error.
 """
 import threading
 import time
@@ -34,7 +36,7 @@ def refresh() -> dict:
     with _lock:
         state["running"] = True
         started = time.perf_counter()
-        reindexed, refetched, dropped, errors = 0, 0, 0, []
+        reindexed, refetched, dropped, withdrawn, errors = 0, 0, 0, 0, []
 
         seed_paths = sorted(list(config.SEED_DIR.glob("*.md")) + list(config.SEED_DIR.glob("*.pdf")))
         seen = set()
@@ -58,13 +60,20 @@ def refresh() -> dict:
                     ingest.index_url(doc["url"], origin=doc.get("origin", "upload"))
                     refetched += 1
                 except Exception as exc:
-                    errors.append(f"{doc['url']}: {exc}")
+                    if ingest.is_withdrawn(exc):
+                        store.delete_document(doc["doc_id"])
+                        withdrawn += 1
+                        dropped += 1
+                        errors.append(f"{doc['url']}: withdrawn at the source, removed from the index ({exc})")
+                    else:
+                        errors.append(f"{doc['url']}: {exc}")
 
         store.save()
         result = {
             "at": _now().isoformat(timespec="seconds"),
             "seed_reindexed": reindexed,
             "urls_refetched": refetched,
+            "urls_withdrawn": withdrawn,
             "stale_dropped": dropped,
             "errors": errors,
             "elapsed_ms": int((time.perf_counter() - started) * 1000),
