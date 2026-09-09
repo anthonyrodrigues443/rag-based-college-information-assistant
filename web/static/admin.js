@@ -3,10 +3,15 @@
   let token = sessionStorage.getItem("cq_token") || "";
 
   const api = async (path, options = {}) => {
-    const response = await fetch(path, {
-      ...options,
-      headers: { "X-Admin-Token": token, ...(options.headers || {}) },
-    });
+    let response;
+    try {
+      response = await fetch(path, {
+        ...options,
+        headers: { "X-Admin-Token": token, ...(options.headers || {}) },
+      });
+    } catch (err) {
+      throw new Error(`the server could not be reached (${err.message})`);
+    }
     if (response.status === 401) throw new Error("Unauthorised. Check the admin token.");
     if (!response.ok) throw new Error(await response.text());
     return response.json();
@@ -18,50 +23,93 @@
     box.textContent = message + "\n" + box.textContent;
   };
 
+  // Everything below comes out of documents staff did not write. It is put on the page
+  // as text, never as markup, so metadata cannot run in the authenticated admin origin.
+  const el = (tag, cls, text) => {
+    const node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  };
+
+  const cell = child => {
+    const td = document.createElement("td");
+    td.append(child);
+    return td;
+  };
+
   function renderStats(stats) {
-    $("stats").innerHTML = [
+    const box = $("stats");
+    box.replaceChildren();
+    [
       [stats.documents, "documents"],
       [stats.chunks, "chunks"],
       [stats.vectors, "vectors (384-d)"],
       [stats.seed_documents, "from seed corpus"],
       [stats.uploaded_documents, "uploaded"],
-    ].map(([value, label]) => `<div class="stat"><b>${value}</b><span>${label}</span></div>`).join("");
+    ].forEach(([value, label]) => {
+      const stat = el("div", "stat");
+      stat.append(el("b", null, String(value ?? "")), el("span", null, label));
+      box.append(stat);
+    });
   }
 
   function renderDocs(docs) {
     $("doc-count").textContent = `(${docs.length})`;
-    $("docs").innerHTML = docs.map(doc => `
-      <tr>
-        <td>${escapeHtml(doc.title || "")}</td>
-        <td><span class="tag">${doc.kind || "page"}</span></td>
-        <td><span class="tag ${doc.origin === "upload" ? "upload" : ""}">${doc.origin || ""}</span></td>
-        <td>${doc.n_chunks}</td>
-        <td>${(doc.indexed_at || "").replace("T", " ").replace("+00:00", "")}</td>
-        <td><button class="del" data-id="${doc.doc_id}">remove</button></td>
-      </tr>`).join("");
-    document.querySelectorAll(".del").forEach(button => {
-      button.addEventListener("click", async () => {
-        if (!confirm("Remove this document from the index?")) return;
-        const data = await api("/api/admin/document/" + button.dataset.id, { method: "DELETE" });
-        log(`removed ${data.removed_chunks} chunks`);
-        refresh();
-      });
+    const tbody = $("docs");
+    tbody.replaceChildren();
+    docs.forEach(doc => {
+      const row = document.createElement("tr");
+      row.append(cell(document.createTextNode(doc.title || "")));
+      row.append(cell(el("span", "tag", doc.kind || "page")));
+      row.append(cell(el("span", "tag " + (doc.origin === "upload" ? "upload" : ""), doc.origin || "")));
+      row.append(cell(document.createTextNode(String(doc.n_chunks ?? ""))));
+      row.append(cell(document.createTextNode(
+        String(doc.indexed_at || "").replace("T", " ").replace("+00:00", ""))));
+
+      const button = el("button", "del", "remove");
+      button.type = "button";
+      button.dataset.id = doc.doc_id;
+      button.setAttribute("aria-label", `Remove ${doc.title || "this document"} from the index`);
+      button.addEventListener("click", () => remove(button, doc));
+      row.append(cell(button));
+      tbody.append(row);
     });
   }
 
-  const escapeHtml = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  async function remove(button, doc) {
+    if (!confirm(`Remove "${doc.title || "this document"}" from the index?`)) return;
+    button.disabled = true;
+    try {
+      const data = await api("/api/admin/document/" + doc.doc_id, { method: "DELETE" });
+      log(`removed ${data.removed_chunks} chunks`);
+    } catch (err) {
+      // The row still reflects the server, which still holds the document.
+      log(`ERROR  could not remove ${doc.title || doc.doc_id} — ${err.message}`);
+      button.disabled = false;
+      return;
+    }
+    refresh();
+  }
 
   async function refresh() {
-    const data = await api("/api/admin/status");
-    renderStats(data.stats);
-    renderDocs(data.documents);
+    try {
+      const data = await api("/api/admin/status");
+      renderStats(data.stats);
+      renderDocs(data.documents);
+    } catch (err) {
+      log("ERROR  could not read the index status — " + err.message);
+    }
   }
 
   function report(payload) {
     payload.results.forEach(result => {
-      log(result.skipped
-        ? `SKIPPED  ${result.title} — ${result.skipped}`
-        : `INDEXED  ${result.title} — ${result.chunks} chunks, ${result.words || "?"} words`);
+      if (result.skipped) {
+        log(`SKIPPED  ${result.title} — ${result.skipped}`);
+      } else {
+        log(`INDEXED  ${result.title} — ${result.chunks} chunks, ${result.words || "?"} words`
+          + (result.replaced ? " (replaced the previous version of this document)" : ""));
+      }
     });
     if (payload.elapsed_ms) log(`done in ${payload.elapsed_ms} ms`);
     refresh();

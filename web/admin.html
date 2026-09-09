@@ -4,13 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CampusQuery · index management</title>
+<link rel="icon" href="/static/favicon.ico" sizes="any">
 <link rel="stylesheet" href="/static/admin.css">
 </head>
 <body>
 
 <header class="bar">
   <div class="wrap">
-    <div class="brand"><span class="dot"></span> CampusQuery <em>index management</em></div>
+    <h1 class="brand"><span class="dot"></span> CampusQuery <em>index management</em></h1>
     <a class="back" href="/">← back to the college site</a>
   </div>
 </header>
@@ -69,10 +70,12 @@
     <section class="card">
       <h2>Indexed documents <span id="doc-count" class="count"></span></h2>
       <div id="log" class="log" hidden></div>
-      <table class="docs">
-        <thead><tr><th>Title</th><th>Kind</th><th>Origin</th><th>Chunks</th><th>Indexed</th><th></th></tr></thead>
-        <tbody id="docs"></tbody>
-      </table>
+      <div class="table-scroll">
+        <table class="docs">
+          <thead><tr><th>Title</th><th>Kind</th><th>Origin</th><th>Chunks</th><th>Indexed</th><th>Actions</th></tr></thead>
+          <tbody id="docs"></tbody>
+        </table>
+      </div>
     </section>
   </div>
 </main>

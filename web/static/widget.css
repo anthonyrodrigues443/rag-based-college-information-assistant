@@ -31,28 +31,45 @@
 .cq-answer strong{color:#0f2137}
 .cq-answer sup{color:#0b6b7a;font-weight:700;font-size:9px}
 .cq-refusal{background:#fbf6ec;border:1px solid #ecdcbd;border-radius:9px;padding:10px 12px;font-size:12.5px;color:#6d5620}
-.cq-refusal span{display:block;margin-top:5px;font-size:10.5px;color:#8a7a55}
+.cq-refusal span{display:block;margin-top:5px;font-size:10.5px;color:#6d5620}
+.cq-refusal .retry{margin-top:8px;background:#0f2137;color:#fff;border:0;border-radius:14px;
+  padding:5px 12px;font-family:inherit;font-size:11px;cursor:pointer}
+.cq-refusal .retry:hover{background:#16304f}
 
-.cq-cite{border:1px solid #e3e6ea;border-radius:9px;padding:9px 11px;cursor:pointer;background:#fff}
+.cq-degraded{background:#f2f6fa;border:1px solid #d5e1ee;border-radius:9px;padding:9px 11px;
+  font-size:11.5px;color:#26405e}
+.cq-degraded strong{display:block;font-size:11.5px;color:#12284c}
+.cq-degraded span{display:block;margin-top:3px;line-height:1.5}
+.cq-degraded small{display:block;margin-top:5px;font-size:10px;color:#4a5f79;font-family:ui-monospace,Menlo,monospace}
+
+.cq-cite{border:1px solid #e3e6ea;border-radius:9px;background:#fff}
 .cq-cite:hover{border-color:#c9d2dc;background:#fafbfc}
-.cq-cite-top{display:flex;align-items:center;gap:7px}
+.cq-cite-toggle{display:block;width:100%;text-align:left;background:none;border:0;
+  padding:9px 11px;font-family:inherit;cursor:pointer;color:inherit}
+.cq-cite-toggle:focus-visible{outline:2px solid #0f2137;outline-offset:-2px;border-radius:9px}
+.cq-cite-top{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.cq-cite-n{font-size:10px;font-weight:700;color:#0b6b7a}
 .cq-kind{font-size:8.5px;font-weight:700;letter-spacing:.5px;color:#c8102e;border:1px solid #f0c9d0;border-radius:3px;padding:1px 4px}
 .cq-kind.page,.cq-kind.handbook{color:#0b6b7a;border-color:#bfdde2}
 .cq-cite b{font-size:11.5px;color:#12284c;line-height:1.35}
-.cq-cite small{display:block;margin-top:3px;font-size:10px;color:#7c8794}
-.cq-cite-body{display:none;margin-top:8px;padding-top:8px;border-top:1px dashed #e3e6ea;
+.cq-cite small{display:block;margin-top:3px;font-size:10px;color:#5b6672}
+.cq-cite-body{margin:0 11px;padding:8px 0;border-top:1px dashed #e3e6ea;
   font-size:11px;line-height:1.55;color:#4b5563;white-space:pre-wrap}
-.cq-cite.open .cq-cite-body{display:block}
+.cq-cite-open{display:block;padding:0 11px 9px;font-size:10.5px;color:#0b5f8a;text-decoration:underline}
+.cq-cite-missing{margin:0;padding:0 11px 9px;font-size:10.5px;color:#5b6672}
 
 .cq-typing{display:inline-flex;align-items:center;gap:8px;background:#f1f3f6;border-radius:20px;
-  padding:7px 12px;font-size:11px;color:#6b7280;align-self:flex-start}
+  padding:7px 12px;font-size:11px;color:#535b66;align-self:flex-start}
+.cq-cancel{border:1px solid #c9d2dc;background:#fff;color:#26405e;border-radius:12px;
+  padding:2px 9px;font-family:inherit;font-size:10.5px;cursor:pointer}
+.cq-cancel:hover{background:#e9eef4}
 .cq-typing i{width:5px;height:5px;border-radius:50%;background:#98a1ac;display:inline-block;animation:cqb 1s infinite}
 .cq-typing i:nth-child(2){animation-delay:.15s}
 .cq-typing i:nth-child(3){animation-delay:.3s}
 @keyframes cqb{0%,60%,100%{opacity:.3}30%{opacity:1}}
 
 .cq-foot{border-top:1px solid #edeff2;padding:9px 12px 12px}
-.cq-meta{margin:0 0 8px;font-size:9.5px;color:#98a1ac}
+.cq-meta{margin:0 0 8px;font-size:9.5px;color:#5b6672}
 .cq-form{display:flex;gap:8px;align-items:center}
 .cq-form input{flex:1;border:1px solid #e3e6ea;border-radius:20px;padding:9px 13px;font-family:inherit;font-size:12.5px}
 .cq-form input:focus{outline:none;border-color:#0f2137}

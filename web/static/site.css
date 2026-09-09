@@ -17,7 +17,7 @@ a:hover{text-decoration:underline}
 .masthead{border-bottom:1px solid var(--line)}
 .masthead .wrap{display:flex;align-items:center;gap:14px;padding-top:12px;padding-bottom:12px}
 .crest{width:44px;height:44px;border-radius:50%;background:#eceff3;border:1px solid var(--line);
-  display:grid;place-items:center;font-size:9px;color:#9aa3ad;letter-spacing:.5px}
+  display:grid;place-items:center;font-size:9px;color:#5f6873;letter-spacing:.5px}
 .identity h1{margin:0;font-family:Georgia,"Times New Roman",serif;font-size:21px;color:var(--navy)}
 .identity p{margin:3px 0 0;font-size:11px;color:var(--muted)}
 .masthead-tools{margin-left:auto;display:flex;align-items:center;gap:10px}
@@ -65,6 +65,11 @@ h3{font-size:11px;letter-spacing:1.1px;color:var(--muted);margin:0 0 10px;font-w
 .notices .kind{color:var(--red);font-size:9.5px;font-weight:700;letter-spacing:.5px}
 .notices .kind.scan{color:#8a6d1f}
 .notices .loading{color:var(--muted)}
+.notices-error{display:flex;align-items:center;gap:10px;flex-wrap:wrap;color:#6d5620;
+  background:#fbf6ec;border:1px solid #ecdcbd;border-radius:6px;padding:10px 12px;margin:9px 0}
+.notices-error .retry{background:#0f2137;color:#fff;border:0;border-radius:5px;padding:5px 11px;
+  font-family:inherit;font-size:11.5px;cursor:pointer}
+.notices-error .retry:hover{background:#16304f}
 .pager{display:flex;gap:10px;align-items:center;font-size:11px;color:var(--muted);padding:12px 2px}
 .pager b{background:var(--navy);color:#fff;padding:2px 7px}
 
@@ -86,4 +91,16 @@ h3{font-size:11px;letter-spacing:1.1px;color:var(--muted);margin:0 0 10px;font-w
   .layout{grid-template-columns:1fr}
   .masthead .wrap{flex-wrap:wrap}
   .masthead-tools{width:100%;margin-left:0}
+}
+
+/* The utility bar is a fixed 26px row of links plus a language block. On a phone the
+   links need more than one line, so the row grows instead of letting the two halves
+   overlap and spill past the bar's background. */
+@media (max-width:640px){
+  .utility .wrap{height:auto;flex-wrap:wrap;row-gap:2px;padding-top:5px;padding-bottom:5px}
+  .utility-links{display:flex;flex-wrap:wrap;row-gap:2px}
+  .utility a{margin-right:12px}
+  .utility-right{display:flex;flex-wrap:wrap;align-items:center;column-gap:2px}
+  .ticker .wrap{height:auto;padding-top:6px;padding-bottom:6px;align-items:flex-start}
+  .ticker-items{flex-wrap:wrap;white-space:normal;row-gap:2px}
 }
