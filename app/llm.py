@@ -53,26 +53,33 @@ def describe() -> str:
     return f"{name}:{model_name(name)}"
 
 
-def complete(messages, temperature: float = 0.2, max_tokens: int = 400) -> str:
+class Timeout(Exception):
+    """The generator did not answer inside the interactive budget."""
+
+
+def complete(messages, temperature: float = 0.2, max_tokens: int = 400, timeout: float = None) -> str:
     name = provider()
     if name == "groq":
-        return _groq(messages, temperature, max_tokens)
+        return _groq(messages, temperature, max_tokens, timeout)
     if name == "ollama":
-        return _ollama(messages, temperature, max_tokens)
+        return _ollama(messages, temperature, max_tokens, timeout)
     raise NoGenerator("no generator configured")
 
 
-def _groq(messages, temperature, max_tokens) -> str:
+def _groq(messages, temperature, max_tokens, timeout) -> str:
     from groq import Groq
-    client = Groq(api_key=config.GROQ_API_KEY)
-    response = client.chat.completions.create(
-        model=config.GROQ_MODEL, messages=messages,
-        temperature=temperature, max_tokens=max_tokens,
-    )
+    client = Groq(api_key=config.GROQ_API_KEY, timeout=timeout or config.GEN_TIMEOUT)
+    try:
+        response = client.chat.completions.create(
+            model=config.GROQ_MODEL, messages=messages,
+            temperature=temperature, max_tokens=max_tokens,
+        )
+    except Exception as exc:
+        raise _as_timeout(exc) from exc
     return clean(response.choices[0].message.content)
 
 
-def _ollama(messages, temperature, max_tokens) -> str:
+def _ollama(messages, temperature, max_tokens, timeout) -> str:
     payload = {
         "model": config.OLLAMA_MODEL,
         "messages": messages,
@@ -80,10 +87,20 @@ def _ollama(messages, temperature, max_tokens) -> str:
         "think": False,                       # ignored by models that do not reason
         "options": {"temperature": temperature, "num_predict": max_tokens},
     }
-    response = httpx.post(f"{config.OLLAMA_HOST}/api/chat", json=payload,
-                          timeout=config.OLLAMA_TIMEOUT)
-    response.raise_for_status()
+    try:
+        response = httpx.post(f"{config.OLLAMA_HOST}/api/chat", json=payload,
+                              timeout=timeout or config.OLLAMA_TIMEOUT)
+        response.raise_for_status()
+    except Exception as exc:
+        raise _as_timeout(exc) from exc
     return clean(response.json().get("message", {}).get("content", ""))
+
+
+def _as_timeout(exc: Exception) -> Exception:
+    """A slow generator and a broken one need different words in the widget."""
+    if isinstance(exc, httpx.TimeoutException) or "timed out" in str(exc).lower():
+        return Timeout(f"{provider()} did not answer in time")
+    return exc
 
 
 def clean(text: str) -> str:

@@ -88,7 +88,7 @@ def metrics(flag_lists):
 
 # ------------------------------------------------------------------ retrieval ablation
 def ablation():
-    modes = {m: [] for m in ("bm25", "dense", "hybrid", "hybrid_rerank")}
+    modes = {m: [] for m in ("bm25", "dense", "hybrid", "hybrid_rerank", "pipeline")}
     for question, wanted in ANSWERABLE:
         vector = models.encode([question])[0]
         dense = store.dense_search(vector, config.TOP_K_DENSE)
@@ -109,6 +109,12 @@ def ablation():
             reverse=True,
         )
         modes["hybrid_rerank"].append(hits([c for c, _ in blended[:5]], wanted))
+
+        # The four rows above each isolate one retriever choice on the raw question.
+        # This one is the shipped pipeline, which also normalises the question and
+        # orders on the programme it asks about.
+        shipped, _ = retrieve.search(question, top_n=5)
+        modes["pipeline"].append(hits(shipped, wanted))
     return {name: metrics(flags) for name, flags in modes.items()}
 
 
@@ -117,14 +123,14 @@ def refusals():
     correct, leaked = 0, []
     for question in OFFTOPIC:
         results, _ = retrieve.search(question)
-        if retrieve.below_threshold(results):
+        if retrieve.unsupported(question, results):
             correct += 1
         else:
             leaked.append(question)
     false_refusals = []
     for question, _ in ANSWERABLE:
         results, _ = retrieve.search(question)
-        if retrieve.below_threshold(results):
+        if retrieve.unsupported(question, results):
             false_refusals.append(question)
     return {"offtopic_total": len(OFFTOPIC), "offtopic_refused": correct,
             "leaked": leaked, "false_refusals": false_refusals,
@@ -148,16 +154,21 @@ def judge(question, reference, answer):
 def end_to_end():
     """The real product path, plus an LLM-with-no-retrieval baseline on the same questions."""
     rag, cold, latencies = [], [], []
+    retrieval_ms, generation_ms = [], []
     for index, (question, wanted) in enumerate(ANSWERABLE, 1):
         reference = gold_text(wanted)
 
         started = time.perf_counter()
         result = generate.answer(question)
         latencies.append((time.perf_counter() - started) * 1000)
+        retrieval_ms.append(result["retrieval_ms"])
+        generation_ms.append(result["generation_ms"])
         correct, grounded, why = (False, True, "refused") if result["refused"] \
             else judge(question, reference, result["answer"])
         rag.append({"question": question, "answer": result["answer"], "refused": result["refused"],
                     "correct": correct, "grounded": grounded, "why": why,
+                    "mode": result["mode"], "degraded": result["degraded"],
+                    "retrieval_ms": result["retrieval_ms"], "generation_ms": result["generation_ms"],
                     "citations": len(result["citations"]), "latency_ms": latencies[-1]})
 
         try:
@@ -171,7 +182,7 @@ def end_to_end():
         print(f"  {index:>2}/{len(ANSWERABLE)}  rag={'ok ' if correct else 'BAD'} "
               f"cold={'ok ' if c2 else 'BAD'}  {question[:46]}", flush=True)
 
-    return rag, cold, latencies
+    return rag, cold, {"total": latencies, "retrieval": retrieval_ms, "generation": generation_ms}
 
 
 def main():
@@ -189,15 +200,20 @@ def main():
 
     if not retrieval_only:
         print("\nend to end answers and judging (this is the slow part)...")
-        rag, cold, latencies = end_to_end()
+        rag, cold, timings = end_to_end()
         answered = [r for r in rag if not r["refused"]]
+        latencies = timings["total"]
         report["end_to_end"] = {
             "correct": sum(1 for r in rag if r["correct"]),
             "grounded": sum(1 for r in answered if r["grounded"]),
             "answered": len(answered),
             "refused": sum(1 for r in rag if r["refused"]),
+            "fell_back": sum(1 for r in rag if r["degraded"]),
             "median_latency_ms": statistics.median(latencies),
             "p90_latency_ms": sorted(latencies)[int(len(latencies) * 0.9) - 1],
+            "median_retrieval_ms": statistics.median(timings["retrieval"]),
+            "median_generation_ms": statistics.median(timings["generation"]),
+            "p90_generation_ms": sorted(timings["generation"])[int(len(timings["generation"]) * 0.9) - 1],
         }
         report["baseline_no_retrieval"] = {
             "correct": sum(1 for r in cold if r["correct"]),
@@ -220,12 +236,13 @@ def write_markdown(r):
         f"Question set: {r['questions']['total']} labelled questions, "
         f"{n} answerable (each tagged with the document that holds the answer) and "
         f"{r['questions']['offtopic']} off topic that must be refused.", "",
-        "## Retrieval, same questions through four configurations", "",
+        "## Retrieval, same questions through five configurations", "",
         "| Configuration | Hit@1 | Hit@5 | MRR |", "|---|---|---|---|",
     ]
     labels = {"bm25": "BM25 only", "dense": "Dense only (MiniLM)",
-              "hybrid": "Hybrid, RRF fused", "hybrid_rerank": "Hybrid + cross-encoder re-rank"}
-    for key in ("bm25", "dense", "hybrid", "hybrid_rerank"):
+              "hybrid": "Hybrid, RRF fused", "hybrid_rerank": "Hybrid + cross-encoder re-rank",
+              "pipeline": "Shipped pipeline (+ question normalisation, entity ordering)"}
+    for key in ("bm25", "dense", "hybrid", "hybrid_rerank", "pipeline"):
         m = a[key]
         lines.append(f"| {labels[key]} | {m['hit1']:.2f} | {m['hit5']:.2f} | {m['mrr']:.2f} |")
 
@@ -250,8 +267,12 @@ def write_markdown(r):
                   f"| Same model, no retrieval | {b['correct']}/{n} | {b['grounded']}/{n} |",
                   "", "## Latency", "",
                   f"- Median end to end: {e['median_latency_ms']:.0f} ms",
-                  f"- 90th percentile: {e['p90_latency_ms']:.0f} ms",
-                  f"- Refused without calling the generator: {e['refused']}"]
+                  f"- 90th percentile end to end: {e['p90_latency_ms']:.0f} ms",
+                  f"- Median retrieval: {e['median_retrieval_ms']:.0f} ms",
+                  f"- Median generation: {e['median_generation_ms']:.0f} ms",
+                  f"- 90th percentile generation: {e['p90_generation_ms']:.0f} ms",
+                  f"- Refused without calling the generator: {e['refused']}",
+                  f"- Fell back to the extractive answer: {e['fell_back']}"]
     (OUT / "report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 

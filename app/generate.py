@@ -2,7 +2,7 @@
 import re
 import time
 
-from . import config, llm, retrieve
+from . import config, llm, query, retrieve
 
 SYSTEM_PROMPT = """You are CampusQuery, the assistant for this college's website.
 
@@ -34,7 +34,9 @@ def rewrite_question(question: str, history) -> str:
     turns += [{"role": t["role"], "content": t["content"]} for t in history[-config.HISTORY_TURNS:]]
     turns.append({"role": "user", "content": question})
     try:
-        rewritten = llm.complete(turns, temperature=0, max_tokens=80)
+        # The rewrite is part of the same wait the student is sitting through.
+        rewritten = llm.complete(turns, temperature=0, max_tokens=80,
+                                 timeout=config.GEN_TIMEOUT)
         return rewritten.strip().strip('"') or question
     except llm.NoGenerator:
         previous = [t["content"] for t in history if t.get("role") == "user"]
@@ -70,6 +72,7 @@ def citations_for(answer: str, results):
             body = chunk["text"].split("\n", 1)[-1]
             cited.append({
                 "n": number,
+                "doc_id": chunk.get("doc_id", ""),
                 "title": chunk["title"],
                 "kind": chunk.get("kind", "page"),
                 "date": chunk.get("date", ""),
@@ -84,11 +87,47 @@ def citations_for(answer: str, results):
     return cited
 
 
+# A period after one of these is an abbreviation, not the end of a sentence. Splitting
+# on it cuts "a late fee of Rs. 500" down to "a late fee of Rs.", which drops the one
+# number the student asked for.
+ABBREVIATIONS = {
+    "rs", "no", "nos", "sr", "jr", "dr", "prof", "mr", "mrs", "ms", "vs", "viz",
+    "etc", "approx", "govt", "dept", "hrs", "yrs", "fig", "sec", "ref", "art", "cl",
+    "i.e", "e.g",
+}
+SENTENCE_BREAK_RE = re.compile(r"(?<=[.!?])\s+")
+LAST_WORD_RE = re.compile(r"[\s(\[\"']")
+# M.E., B.E., Ph.D., i.e. — a dotted initialism, not the end of a sentence. Splitting on
+# it strands the amount that follows from the programme it belongs to.
+INITIALISM_RE = re.compile(r"^[a-z]{1,3}(?:\.[a-z]{1,3})+$")
+
+
+def ends_with_abbreviation(text: str) -> bool:
+    tail = text.rstrip()
+    if not tail.endswith("."):
+        return False
+    word = LAST_WORD_RE.split(tail[:-1])[-1].lower()
+    return (word in ABBREVIATIONS
+            or INITIALISM_RE.match(word) is not None
+            or (len(word) == 1 and word.isalpha()))
+
+
+def split_sentences(text: str):
+    """Sentence split that keeps an abbreviation attached to what follows it."""
+    sentences = []
+    for part in SENTENCE_BREAK_RE.split(text):
+        if sentences and ends_with_abbreviation(sentences[-1]):
+            sentences[-1] = f"{sentences[-1]} {part}"
+        else:
+            sentences.append(part)
+    return [s.strip() for s in sentences if s.strip()]
+
+
 def extractive_answer(question: str, results):
     """Used when no GROQ_API_KEY is set: quote the retrieved text instead of generating."""
-    terms = {w for w in re.findall(r"[a-z0-9]+", question.lower()) if len(w) > 3}
+    terms = {w for w in re.findall(r"[a-z0-9]+", query.expand(question).lower()) if len(w) > 3}
     body = results[0]["text"].split("\n", 1)[-1]
-    sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", body) if len(s.strip()) > 30]
+    sentences = [s for s in split_sentences(body) if len(s) > 30]
     ranked = sorted(
         sentences,
         key=lambda s: len(terms & set(re.findall(r"[a-z0-9]+", s.lower()))),
@@ -104,16 +143,21 @@ def answer(question: str, history=None):
     history = history or []
     standalone = rewrite_question(question, history)
     results, debug = retrieve.search(standalone)
+    retrieval_ms = int((time.perf_counter() - started) * 1000)
 
-    if retrieve.below_threshold(results):
+    unsupported = retrieve.unsupported(standalone, results)
+    if unsupported:
         return {
             "answer": config.REFUSAL_TEXT,
             "refused": True,
             "citations": [],
             "mode": "refusal",
+            "degraded": None,
             "rewritten": standalone,
             "retrieved": results,
-            "debug": debug,
+            "debug": debug | {"refused_because": unsupported},
+            "retrieval_ms": retrieval_ms,
+            "generation_ms": 0,
             "latency_ms": int((time.perf_counter() - started) * 1000),
         }
 
@@ -126,13 +170,30 @@ def answer(question: str, history=None):
         "content": f"CONTEXT:\n{context}\n\nQUESTION:\n{standalone}",
     })
 
+    # Latency here is the generator's, not the retriever's. Keeping them apart is what
+    # tells a slow model from a slow index when someone reports a long wait.
+    generation_started = time.perf_counter()
+    degraded = None
     try:
-        text, mode = llm.complete(messages), llm.describe()
+        text, mode = llm.complete(messages, timeout=config.GEN_TIMEOUT), llm.describe()
     except llm.NoGenerator:
         text, mode = extractive_answer(question, results), "extractive"
+        degraded = {"reason": "no-generator",
+                    "detail": "No generator is configured, so the answer is quoted from the source."}
+    except llm.Timeout as exc:
+        text = extractive_answer(question, results)
+        mode = f"extractive ({exc})"
+        degraded = {"reason": "timeout",
+                    "detail": (f"The {llm.provider()} model did not answer within "
+                               f"{config.GEN_TIMEOUT:g} seconds, so the answer is quoted "
+                               "from the source instead.")}
     except Exception as exc:
         text = extractive_answer(question, results)
         mode = f"extractive ({llm.provider()} error: {str(exc)[:120]})"
+        degraded = {"reason": "error",
+                    "detail": (f"The {llm.provider()} model could not be reached, so the "
+                               "answer is quoted from the source instead.")}
+    generation_ms = int((time.perf_counter() - generation_started) * 1000)
 
     refused = config.REFUSAL_TEXT.lower().rstrip(".") in text.lower()
     return {
@@ -140,8 +201,11 @@ def answer(question: str, history=None):
         "refused": refused,
         "citations": [] if refused else citations_for(text, results),
         "mode": mode,
+        "degraded": degraded,
         "rewritten": standalone,
         "retrieved": results,
         "debug": debug,
+        "retrieval_ms": retrieval_ms,
+        "generation_ms": generation_ms,
         "latency_ms": int((time.perf_counter() - started) * 1000),
     }

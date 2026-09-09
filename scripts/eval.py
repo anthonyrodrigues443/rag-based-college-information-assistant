@@ -78,7 +78,7 @@ def run(label=""):
     for question, wanted in answerable:
         results, _ = retrieve.search(question, top_n=5)
         flags = hits(results, wanted)
-        if retrieve.below_threshold(results):
+        if retrieve.unsupported(question, results):
             false_refusals.append(question)
         if flags and flags[0]:
             hit1 += 1
@@ -92,7 +92,7 @@ def run(label=""):
     leaked = []
     for question in offtopic:
         results, _ = retrieve.search(question, top_n=5)
-        if retrieve.below_threshold(results):
+        if retrieve.unsupported(question, results):
             refused += 1
         else:
             leaked.append((question, results[0]["title"], results[0]["score"]))
