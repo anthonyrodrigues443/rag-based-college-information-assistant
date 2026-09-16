@@ -1,12 +1,11 @@
 """Extraction and indexing. This is the backend/admin side of the demo,
 not something a public visitor touches."""
 import datetime
-import hashlib
 import re
 from pathlib import Path
 
 from . import chunking, config, models
-from .store import store
+from .store import doc_id_for, store
 
 FRONT_MATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.S)
 _ocr_failure = None            # why the last OCR attempt failed, so it is not swallowed
@@ -38,12 +37,6 @@ def clean_date(value) -> str:
 def clean_url(value) -> str:
     url = str(value or "").strip()
     return url if url.startswith(("http://", "https://")) else ""
-
-
-def doc_id_for(key: str, origin: str = "upload") -> str:
-    """Identity is the origin plus the key. An uploaded contact.md and the seeded
-    contact.md are different documents even though they share a file name."""
-    return hashlib.sha1(f"{origin}\x00{key}".encode("utf-8")).hexdigest()[:12]
 
 
 def parse_front_matter(text: str):
@@ -147,7 +140,7 @@ def index_text(text: str, *, title: str, source: str, key: str = None, origin="u
     vectors = models.encode([c["text"] for c in chunks])
     meta = {"title": title, "source": source, "key": key or source, "url": clean_url(url),
             "kind": clean_kind(kind), "date": clean_date(date), "origin": origin,
-            "words": len(text.split())}
+            "words": len(text.split()), "text": text}
     doc_id = doc_id_for(key or source, origin)
     replaced = doc_id in store.docs
     added = store.add_document(doc_id, meta, chunks, vectors)
@@ -196,12 +189,10 @@ def rejoin(chunks) -> str:
 def document_text(doc: dict) -> str:
     """The complete text behind a citation, so a student can read the qualifications and
     exceptions around the sentence that was quoted."""
-    path = source_path(doc)
-    if path:
-        text = extract(path)
-        if path.suffix.lower() in (".md", ".txt"):
-            _, text = parse_front_matter(text)
-        return chunking.clean_text(text)
+    # Read the accepted version, not a mutable file that may have changed since it
+    # was indexed. Legacy indexes can be reconstructed without trusting the file.
+    if "text" in doc:
+        return doc["text"]
     return rejoin([c for c in store.chunks if c["doc_id"] == doc.get("doc_id")])
 
 

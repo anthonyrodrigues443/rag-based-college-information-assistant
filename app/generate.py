@@ -2,7 +2,7 @@
 import re
 import time
 
-from . import config, llm, query, retrieve
+from . import config, llm, models, query, retrieve
 
 SYSTEM_PROMPT = """You are CampusQuery, the assistant for this college's website.
 
@@ -100,6 +100,10 @@ LAST_WORD_RE = re.compile(r"[\s(\[\"']")
 # M.E., B.E., Ph.D., i.e. — a dotted initialism, not the end of a sentence. Splitting on
 # it strands the amount that follows from the programme it belongs to.
 INITIALISM_RE = re.compile(r"^[a-z]{1,3}(?:\.[a-z]{1,3})+$")
+COUNT_RE = re.compile(r"\b(?:\d[\d,]*|zero|one|two|three|four|five|six|seven|eight|nine|ten|"
+                      r"eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|"
+                      r"nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|"
+                      r"hundred|thousand)\b", re.I)
 
 
 def ends_with_abbreviation(text: str) -> bool:
@@ -124,28 +128,87 @@ def split_sentences(text: str):
 
 
 def extractive_answer(question: str, results):
-    """Used when no GROQ_API_KEY is set: quote the retrieved text instead of generating."""
-    terms = {w for w in re.findall(r"[a-z0-9]+", query.expand(question).lower()) if len(w) > 3}
-    body = results[0]["text"].split("\n", 1)[-1]
-    sentences = [s for s in split_sentences(body) if len(s) > 30]
-    ranked = sorted(
-        sentences,
-        key=lambda s: len(terms & set(re.findall(r"[a-z0-9]+", s.lower()))),
-        reverse=True,
-    )
-    picked = ranked[:2] if ranked else sentences[:2]
-    ordered = [s for s in sentences if s in picked][:2]
-    return " ".join(ordered) + " [1]"
+    """Rank answer-bearing sentences across the evidence, retaining their citations.
+
+    Passage relevance alone does not imply the first passage contains the requested
+    amount, time or eligibility requirement. Score the actual sentences we will quote.
+    """
+    expanded = query.expand(question)
+    programme = query.programme(expanded)
+    candidates = []
+    for number, result in enumerate(results, 1):
+        if result.get("entity") == -1:
+            continue
+        body = result["text"].split("\n", 1)[-1]
+        for position, sentence in enumerate(split_sentences(body)):
+            if query.programme_alignment(sentence, programme) == -1:
+                continue
+            if "how many" in question.lower() and not COUNT_RE.search(sentence):
+                continue
+            if len(sentence.split()) >= 4:
+                candidates.append((number, position, sentence, result))
+    if not candidates:
+        return config.REFUSAL_TEXT
+    # Preserve explicit constraints that a semantic model can blur (V versus VI,
+    # or below 65 versus a concession down to 65). Only narrow when matching
+    # evidence exists; never substitute a conflicting numeric policy.
+    semesters = query.semesters(question)
+    if semesters:
+        matching = [c for c in candidates if query.semesters(c[2]) & semesters]
+        candidates = matching or [c for c in candidates
+                                  if not query.semesters(c[2]) - semesters]
+    comparison = re.search(r"\b(below|above|under|over|less than|more than)\s+(\d+(?:\.\d+)?)",
+                           question, re.I)
+    if comparison:
+        direction, number = comparison.groups()
+        words = "below|under|less than" if direction.lower() in ("below", "under", "less than") \
+            else "above|over|more than"
+        constraint = re.compile(rf"\b(?:{words})\s+{re.escape(number)}\b", re.I)
+        matching = [c for c in candidates if constraint.search(c[2])]
+        if matching:
+            candidates = matching
+    if not candidates:
+        return config.REFUSAL_TEXT
+    passages = [f"{r['title']} > {r.get('section', '')}\n{s}" for _, _, s, r in candidates]
+    if config.USE_RERANKER:
+        scores = models.rerank_scores(expanded, passages)
+    else:
+        terms = set(re.findall(r"[a-z0-9]+", expanded.lower()))
+        scores = [len(terms & set(re.findall(r"[a-z0-9]+", s.lower())))
+                  for _, _, s, _ in candidates]
+    ranked = sorted(zip(candidates, scores), key=lambda pair: pair[1], reverse=True)
+    (number, position, sentence, result), score = ranked[0]
+    if config.USE_RERANKER and score < config.REFUSAL_THRESHOLD:
+        return config.REFUSAL_TEXT
+    # A second sentence is useful only if independently relevant and from the same
+    # passage. Otherwise it introduces an unrelated rule merely to meet a word count.
+    picked = [(position, sentence)]
+    annual_cost = (programme and re.search(r"\b(?:year|annual)\b", question, re.I)
+                   and re.search(r"\b(?:cost|how much)\b", question, re.I)
+                   and "tuition" not in question.lower())
+    for (n, pos, text, _), other_score in ranked[1:]:
+        if n == number and (other_score >= score - 1.0 or
+                            (annual_cost and re.search(r"\bRs\.", text, re.I))):
+            picked.append((pos, text))
+            break
+    text = " ".join(s for _, s in sorted(picked))
+    section = result.get("section", "")
+    if re.search(r"\b(?:odd|even) semester\b", section, re.I) and not re.search(
+            r"\b(?:odd|even) semester\b", text, re.I):
+        text = f"{section}: {text}"
+    return text + f" [{number}]"
 
 
 def answer(question: str, history=None):
     started = time.perf_counter()
     history = history or []
     standalone = rewrite_question(question, history)
+    rewrite_seconds = time.perf_counter() - started
     results, debug = retrieve.search(standalone)
     retrieval_ms = int((time.perf_counter() - started) * 1000)
 
-    unsupported = retrieve.unsupported(standalone, results)
+    unsupported = (retrieve.unsupported(standalone, results)
+                   or retrieve.unsupported(question, results))
     if unsupported:
         return {
             "answer": config.REFUSAL_TEXT,
@@ -175,20 +238,23 @@ def answer(question: str, history=None):
     generation_started = time.perf_counter()
     degraded = None
     try:
-        text, mode = llm.complete(messages, timeout=config.GEN_TIMEOUT), llm.describe()
+        remaining = config.GEN_TIMEOUT - rewrite_seconds
+        if remaining <= 0:
+            raise llm.Timeout(f"{llm.provider()} did not answer in time")
+        text, mode = llm.complete(messages, timeout=remaining), llm.describe()
     except llm.NoGenerator:
-        text, mode = extractive_answer(question, results), "extractive"
+        text, mode = extractive_answer(standalone, results), "extractive"
         degraded = {"reason": "no-generator",
                     "detail": "No generator is configured, so the answer is quoted from the source."}
     except llm.Timeout as exc:
-        text = extractive_answer(question, results)
+        text = extractive_answer(standalone, results)
         mode = f"extractive ({exc})"
         degraded = {"reason": "timeout",
                     "detail": (f"The {llm.provider()} model did not answer within "
                                f"{config.GEN_TIMEOUT:g} seconds, so the answer is quoted "
                                "from the source instead.")}
     except Exception as exc:
-        text = extractive_answer(question, results)
+        text = extractive_answer(standalone, results)
         mode = f"extractive ({llm.provider()} error: {str(exc)[:120]})"
         degraded = {"reason": "error",
                     "detail": (f"The {llm.provider()} model could not be reached, so the "

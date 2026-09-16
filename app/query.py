@@ -46,6 +46,7 @@ ABBREVIATIONS = {
     "tnp": "training and placement",
     "id": "identity card",
     "hod": "head of department",
+    "hsc": "higher secondary examination undergraduate admission",
 }
 
 # What students type on the left, the college's own vocabulary on the right. Every entry
@@ -70,6 +71,13 @@ GLOSSARY = (
     ("missed lectures", "attendance shortage detention"),
     ("short of attendance", "attendance shortage detention"),
     ("seats", "intake seats"),
+    ("get a room", "hostel room allotment"),
+    ("need a room", "hostel room allotment"),
+    ("stay far", "hostel allotment distance from home"),
+    ("live far", "hostel allotment distance from home"),
+    ("mess bill", "mess charges per month"),
+    ("backlog subjects", "KT subjects registration"),
+    ("duplicate identity card", "replacement for lost identity card"),
 )
 
 WORD_RE = re.compile(r"[A-Za-z][A-Za-z.]*")
@@ -84,15 +92,21 @@ PROGRAMME_TERMS = {
 }
 
 # Institutions other than this one. A policy from this corpus is not an answer about them.
+NAME_STOP_WORDS = ("a|an|the|this|that|our|your|my|another|other|what|which|how|when|where|"
+                   "is|are|does|do|can|at|in|for|from|of|and|about|say|says|run|runs|"
+                   "fee|fees|syllabus|course|courses|admission|admissions|hostel|rules")
+NAME_WORD = rf"(?!(?:{NAME_STOP_WORDS})\b)[a-z][a-z.'-]*"
+NAME = rf"{NAME_WORD}(?:\s+{NAME_WORD}){{0,3}}"
+INSTITUTION_TYPE = r"(?:University|College|Institute|Polytechnic|Vidyapeeth|Vishwavidyalaya)"
 INSTITUTION_RE = re.compile(
-    r"\b(?:IIT|NIT|IIIT|IIM|BITS|VJTI|COEP|SPIT|NMIMS|DTU|VIT|SRM|MIT)\b(?:\s+[A-Z][a-z]+)?"
-    r"|\b[A-Z][A-Za-z&.]+(?:\s+(?:of|and|&)?\s*[A-Z][A-Za-z&.]+){0,3}\s+"
-    r"(?:University|Polytechnic|Vidyapeeth|Vishwavidyalaya)\b"
+    rf"\b(?:IIT|NIT|IIIT|IIM|BITS|VJTI|COEP|SPIT|NMIMS|DTU|VIT|SRM|MIT)\b(?:\s+{NAME_WORD})?"
+    rf"|\b{NAME}\s+{INSTITUTION_TYPE}\b(?:\s+of\s+{NAME}(?:\s+(?:and|&)\s+{NAME})?)?"
+    rf"|\b{INSTITUTION_TYPE}\s+of\s+{NAME}(?:\s+(?:and|&)\s+{NAME})?",
+    re.I,
 )
 
 # What this college calls itself, so its own name never reads as somebody else's.
-OWN_NAMES = ("institute of engineering", "this college", "this institute", "the institute",
-             "campusquery")
+OWN_NAMES = ("institute of engineering and technology", "campusquery")
 
 
 def expand(question: str) -> str:
@@ -132,7 +146,7 @@ def institutions(question: str):
     found = []
     for match in INSTITUTION_RE.finditer(question):
         name = re.sub(r"\s+", " ", match.group(0)).strip()
-        if any(own in name.lower() for own in OWN_NAMES):
+        if normalise_name(name) in OWN_NAMES:
             continue
         found.append(name)
     return found
@@ -159,7 +173,16 @@ def programme_alignment(text: str, asked) -> int:
 
 
 def mentions(text: str, name: str) -> bool:
-    """Loose containment, so "IIT Bombay" matches a passage naming only "IIT"."""
-    lowered = text.lower()
-    parts = [p for p in re.split(r"\s+", name.lower()) if p]
-    return all(part in lowered for part in parts)
+    """Match whole name tokens: MIT must not match 'admitted'."""
+    return f" {normalise_name(name)} " in f" {normalise_name(text)} "
+
+
+def normalise_name(text: str) -> str:
+    return " ".join(re.findall(r"[a-z0-9]+", text.lower().replace("&", " and ")))
+
+
+def semesters(text: str) -> set[int]:
+    roman = {name: n for n, name in enumerate(
+        ("i", "ii", "iii", "iv", "v", "vi", "vii", "viii"), 1)}
+    found = re.findall(r"\bsemester\s+(viii|vii|vi|iv|iii|ii|v|i|[1-8])\b", text.lower())
+    return {roman[token] if token in roman else int(token) for token in found}

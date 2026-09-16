@@ -53,6 +53,13 @@ the answer is quoted from the retrieved text, and the widget says so instead of 
 reader at an undifferentiated search indicator. Every answer reports `retrieval_ms` and
 `generation_ms` separately, so a long wait is attributable to a stage rather than to the app.
 
+Extractive fallback ranks sentences across the retrieved passages, keeps their source numbers,
+and preserves explicit programme, semester and numerical constraints. It can select a lower
+ranked passage when that passage contains the requested amount or rule. It uses the same
+cross-encoder already loaded for retrieval; no second language model is required.
+For follow-up questions, rewriting and answer generation share the same timeout budget;
+a stalled rewrite cannot start a second full wait before fallback.
+
 ## How a question is answered
 
 ```
@@ -98,7 +105,9 @@ off-topic ones that must be refused.
 ./.venv/bin/python scripts/eval_full.py --retrieval-only
 ```
 
-Retrieval, same 50 questions through five configurations. The first four each isolate one
+The following benchmark tables were recorded for PR #22. They are historical measurements,
+not a fresh LLM evaluation of subsequent fixes. Retrieval, same 50 questions through five
+configurations. The first four each isolate one
 retriever choice on the raw question; the last is what actually ships.
 
 | Configuration | Hit@1 | Hit@5 | MRR |
@@ -154,12 +163,31 @@ tests/          pytest suite, hermetic: its own corpus, index and upload directo
 ./.venv/bin/python -m pytest tests -q
 ```
 
-The suite builds its own five-document corpus in a temporary directory, so it never touches
-`data/index`. It covers metadata validation and document identity, the extractive answer's
+The suite builds its own five-document corpus and a copy of the complete seed corpus in
+temporary directories, so it never touches `data/index`. It covers metadata validation and document identity, the extractive answer's
 handling of amounts, question normalisation and the refusal gate, the refresh policy for
 withdrawn URLs against a loopback HTTP fixture, the public document routes, and the browser
 side: the date formatters run under node, and the rest are structural checks on the markup
 and the contrast ratios of the text axe flagged.
+
+Full-corpus regressions assert the facts in answers, including amounts, HSC requirements,
+backlog limits, opening hours and hostel eligibility, rather than only matching citation titles.
+Additional tests load legacy and already duplicated indexes, verify vector/chunk alignment and
+old citation links, and exercise rejected replacements, extraction failures, partial index-write
+failures and failed file publication through the upload API.
+
+### Existing installations
+
+On loading an older index, document identities are migrated to `(origin, key)`. If an earlier
+refresh left duplicates, the newest indexed version wins. Uploads remain distinct from seed
+documents, and old document IDs remain usable as citation aliases. This migration persists
+automatically; it does not require the destructive seed reset.
+
+Replacement uploads are staged and validated before publishing the accepted file. Failed
+updates restore the previous in-memory and persisted index. Source links read the accepted
+indexed text, so an edited or rejected file cannot silently change the evidence behind a
+citation. For a legacy document without a saved text snapshot, the source is reconstructed
+from its indexed chunks until its next successful refresh.
 
 ## API
 

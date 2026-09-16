@@ -24,6 +24,13 @@ def reciprocal_rank_fusion(*ranked_lists, k=None):
 
 def search(question: str, top_n: int = None):
     """Returns (results, debug). results are the top_n chunks after re-ranking."""
+    # Upload transactions replace vectors and chunks together. A reader must not
+    # use vector row numbers from one version with chunks from another.
+    with store.lock:
+        return _search(question, top_n)
+
+
+def _search(question: str, top_n: int = None):
     top_n = top_n or config.TOP_N_CONTEXT
     if not store.chunks:
         return [], {"dense": 0, "bm25": 0, "fused": 0, "reranked": False}
