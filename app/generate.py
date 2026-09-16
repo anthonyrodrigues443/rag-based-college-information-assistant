@@ -2,7 +2,7 @@
 import re
 import time
 
-from . import config, llm, query, retrieve
+from . import config, llm, models, query, retrieve
 
 SYSTEM_PROMPT = """You are CampusQuery, the assistant for this college's website.
 
@@ -19,6 +19,51 @@ the meaning and fills in anything they referred to indirectly. Reply with the qu
 no explanation."""
 
 FOLLOW_UP_CUES = ("and ", "what about", "how about", "for the", "then ", "same for", "also ")
+REFERENCE_RE = re.compile(r"\b(?:it|its|they|their|them|that|those|these|there)\b", re.I)
+PROGRAMME_REFERENCES = {
+    "ug": re.compile(r"\b(?:BE|UG|BTECH)\b|(?i:\bb\.e\.?|\bb\.?tech\b|\bundergraduate\b|\bbachelor of engineering\b)"),
+    "pg": re.compile(r"\b(?:ME|PG|MTECH)\b|(?i:\bm\.e\.?|\bm\.?tech\b|\bpostgraduate\b|\bmaster of engineering\b)"),
+    "phd": re.compile(r"(?i:\bph\.?d\.?|\bdoctoral\b|\bresearch scholar\b)"),
+}
+FOLLOW_UP_TOPICS = ("hostel", "attendance", "revaluation", "photocopy", "scholarship",
+                    "library", "transcript", "placement", "admission", "examination")
+
+
+def local_rewrite(question, history):
+    """Retain a dependent question's topic without repeating the old request.
+
+    This fallback runs when the writing model is absent or fails. An explicit new
+    programme replaces the previous programme; a new attribute (room fee after
+    mess cost) only inherits the shared topic, never the old attribute.
+    """
+    previous = [t["content"] for t in history if t.get("role") == "user"]
+    if not previous:
+        return question
+    asked = query.entities(question)["programme"]
+    if len(asked) == 1:
+        level = next(iter(asked))
+        fragment = PROGRAMME_REFERENCES[level].sub("", question)
+        fragment = re.sub(r"\b(?:and|what|how|about|same|for|the|programme|program|also|then)\b",
+                          "", fragment, flags=re.I)
+        if not re.search(r"\w", fragment):
+            replacement = {"ug": "B.E.", "pg": "M.E.", "phd": "Ph.D."}[level]
+            rewritten = previous[-1]
+            for pattern in PROGRAMME_REFERENCES.values():
+                rewritten = pattern.sub(lambda _: replacement, rewritten)
+            if rewritten != previous[-1]:
+                return rewritten
+    for earlier in reversed(previous):
+        for topic in FOLLOW_UP_TOPICS:
+            if re.search(rf"\b{topic}\w*\b", earlier, re.I):
+                if re.search(rf"\b{topic}\w*\b", question, re.I):
+                    return question
+                return f"{question} ({topic})"
+        if not asked:
+            for pattern in PROGRAMME_REFERENCES.values():
+                match = pattern.search(earlier)
+                if match:
+                    return f"{question} ({match.group()})"
+    return question
 
 
 def rewrite_question(question: str, history) -> str:
@@ -26,7 +71,7 @@ def rewrite_question(question: str, history) -> str:
     if not history:
         return question
     lowered = question.lower().strip()
-    anaphoric = len(question.split()) <= 8 or lowered.startswith(FOLLOW_UP_CUES)
+    anaphoric = lowered.startswith(FOLLOW_UP_CUES) or REFERENCE_RE.search(question)
     if not anaphoric:
         return question
 
@@ -39,10 +84,9 @@ def rewrite_question(question: str, history) -> str:
                                  timeout=config.GEN_TIMEOUT)
         return rewritten.strip().strip('"') or question
     except llm.NoGenerator:
-        previous = [t["content"] for t in history if t.get("role") == "user"]
-        return f"{previous[-1]} {question}" if previous else question
+        return local_rewrite(question, history)
     except Exception:
-        return question
+        return local_rewrite(question, history)
 
 
 def build_context(results):
@@ -100,6 +144,14 @@ LAST_WORD_RE = re.compile(r"[\s(\[\"']")
 # M.E., B.E., Ph.D., i.e. — a dotted initialism, not the end of a sentence. Splitting on
 # it strands the amount that follows from the programme it belongs to.
 INITIALISM_RE = re.compile(r"^[a-z]{1,3}(?:\.[a-z]{1,3})+$")
+COUNT_RE = re.compile(r"\b(?:\d[\d,]*|zero|one|two|three|four|five|six|seven|eight|nine|ten|"
+                      r"eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|"
+                      r"nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|"
+                      r"hundred|thousand)\b", re.I)
+DATE_OR_WINDOW_RE = re.compile(
+    r"\b(?:January|February|March|April|May|June|July|August|September|October|November|December|"
+    r"Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|days?|weeks?|hours?)\b"
+    r"|\b\d{1,4}[-/]\d{1,2}[-/]\d{1,4}\b", re.I)
 
 
 def ends_with_abbreviation(text: str) -> bool:
@@ -124,28 +176,110 @@ def split_sentences(text: str):
 
 
 def extractive_answer(question: str, results):
-    """Used when no GROQ_API_KEY is set: quote the retrieved text instead of generating."""
-    terms = {w for w in re.findall(r"[a-z0-9]+", query.expand(question).lower()) if len(w) > 3}
-    body = results[0]["text"].split("\n", 1)[-1]
-    sentences = [s for s in split_sentences(body) if len(s) > 30]
-    ranked = sorted(
-        sentences,
-        key=lambda s: len(terms & set(re.findall(r"[a-z0-9]+", s.lower()))),
-        reverse=True,
-    )
-    picked = ranked[:2] if ranked else sentences[:2]
-    ordered = [s for s in sentences if s in picked][:2]
-    return " ".join(ordered) + " [1]"
+    """Rank answer-bearing sentences across the evidence, retaining their citations.
+
+    Passage relevance alone does not imply the first passage contains the requested
+    amount, time or eligibility requirement. Score the actual sentences we will quote.
+    """
+    expanded = query.expand(question)
+    programme = query.programme(expanded)
+    candidates = []
+    for number, result in enumerate(results, 1):
+        if result.get("entity") == -1:
+            continue
+        body = result["text"].split("\n", 1)[-1]
+        for position, sentence in enumerate(split_sentences(body)):
+            if not query.supports_detail(question, sentence):
+                continue
+            if query.programme_alignment(sentence, programme) == -1:
+                continue
+            if "how many" in question.lower() and not COUNT_RE.search(sentence):
+                continue
+            if re.search(r"\b(?:deadline|last date)\b", question, re.I) and not DATE_OR_WINDOW_RE.search(sentence):
+                continue
+            if len(sentence.split()) >= 4:
+                candidates.append((number, position, sentence, result))
+    if not candidates:
+        return config.REFUSAL_TEXT
+    # Preserve explicit constraints that a semantic model can blur (V versus VI,
+    # or below 65 versus a concession down to 65). Only narrow when matching
+    # evidence exists; never substitute a conflicting numeric policy.
+    semesters = query.semesters(question)
+    if semesters:
+        matching = [c for c in candidates if query.semesters(c[2]) & semesters]
+        candidates = matching or [c for c in candidates
+                                  if not query.semesters(c[2]) - semesters]
+    comparison = re.search(r"\b(below|above|under|over|less than|more than)\s+(\d+(?:\.\d+)?)",
+                           question, re.I)
+    if comparison:
+        direction, number = comparison.groups()
+        words = "below|under|less than" if direction.lower() in ("below", "under", "less than") \
+            else "above|over|more than"
+        constraint = re.compile(rf"\b(?:{words})\s+{re.escape(number)}\b", re.I)
+        matching = [c for c in candidates if constraint.search(c[2])]
+        if matching:
+            candidates = matching
+    if not candidates:
+        return config.REFUSAL_TEXT
+    passages = [f"{r['title']} > {r.get('section', '')}\n{s}" for _, _, s, r in candidates]
+    if config.USE_RERANKER:
+        scores = models.rerank_scores(expanded, passages)
+    else:
+        terms = set(re.findall(r"[a-z0-9]+", expanded.lower()))
+        scores = [len(terms & set(re.findall(r"[a-z0-9]+", s.lower())))
+                  for _, _, s, _ in candidates]
+    ranked = sorted(zip(candidates, scores), key=lambda pair: pair[1], reverse=True)
+    (number, position, sentence, result), score = ranked[0]
+    if config.USE_RERANKER and score < config.REFUSAL_THRESHOLD:
+        return config.REFUSAL_TEXT
+    # A second sentence is useful only if independently relevant and from the same
+    # passage. Otherwise it introduces an unrelated rule merely to meet a word count.
+    picked = [(position, sentence)]
+    annual_cost = (programme and re.search(r"\b(?:year|annual)\b", question, re.I)
+                   and re.search(r"\b(?:cost|how much)\b", question, re.I)
+                   and "tuition" not in question.lower())
+    for (n, pos, text, _), other_score in ranked[1:]:
+        if n == number and (other_score >= score - 1.0 or
+                            (annual_cost and re.search(r"\bRs\.", text, re.I))):
+            picked.append((pos, text))
+            break
+    # A selected exception can refer to an earlier rule ("below this level").
+    # Keep that antecedent when it survived the same entity/detail constraints.
+    by_position = {pos: text for n, pos, text, _ in candidates if n == number}
+    selected = dict(picked)
+    for pos, sentence in picked:
+        if (re.search(r"\b(?:this|that|these|those)\s+(?:level|limit|rate|amount|date|rules?)\b",
+                      sentence, re.I) and pos - 1 in by_position):
+            selected[pos - 1] = by_position[pos - 1]
+    picked = list(selected.items())
+    text = " ".join(s for _, s in sorted(picked))
+    section = result.get("section", "")
+    if re.search(r"\b(?:odd|even) semester\b", section, re.I) and not re.search(
+            r"\b(?:odd|even) semester\b", text, re.I):
+        text = f"{section}: {text}"
+    # A student's stated attendance needs the exception as well as the general
+    # minimum. Quote its thresholds directly rather than infer eligibility from
+    # the most similar sentence (often just a reference to the separate rules).
+    if (not comparison and re.search(r"\battendance\b", question, re.I)
+            and re.search(r"\b\d+(?:\.\d+)?\s*(?:percent|%)", question, re.I)):
+        for n, passage in enumerate(results, 1):
+            if (n != number and "condonation" in passage.get("section", "").lower()
+                    and "attendance" in passage["title"].lower()):
+                qualification = passage["text"].split("\n", 1)[-1]
+                return f"{text} [{number}] {qualification} [{n}]"
+    return text + f" [{number}]"
 
 
 def answer(question: str, history=None):
     started = time.perf_counter()
     history = history or []
     standalone = rewrite_question(question, history)
+    rewrite_seconds = time.perf_counter() - started
     results, debug = retrieve.search(standalone)
     retrieval_ms = int((time.perf_counter() - started) * 1000)
 
-    unsupported = retrieve.unsupported(standalone, results)
+    unsupported = (retrieve.unsupported(standalone, results)
+                   or retrieve.unsupported(question, results))
     if unsupported:
         return {
             "answer": config.REFUSAL_TEXT,
@@ -175,20 +309,23 @@ def answer(question: str, history=None):
     generation_started = time.perf_counter()
     degraded = None
     try:
-        text, mode = llm.complete(messages, timeout=config.GEN_TIMEOUT), llm.describe()
+        remaining = config.GEN_TIMEOUT - rewrite_seconds
+        if remaining <= 0:
+            raise llm.Timeout(f"{llm.provider()} did not answer in time")
+        text, mode = llm.complete(messages, timeout=remaining), llm.describe()
     except llm.NoGenerator:
-        text, mode = extractive_answer(question, results), "extractive"
+        text, mode = extractive_answer(standalone, results), "extractive"
         degraded = {"reason": "no-generator",
                     "detail": "No generator is configured, so the answer is quoted from the source."}
     except llm.Timeout as exc:
-        text = extractive_answer(question, results)
+        text = extractive_answer(standalone, results)
         mode = f"extractive ({exc})"
         degraded = {"reason": "timeout",
                     "detail": (f"The {llm.provider()} model did not answer within "
                                f"{config.GEN_TIMEOUT:g} seconds, so the answer is quoted "
                                "from the source instead.")}
     except Exception as exc:
-        text = extractive_answer(question, results)
+        text = extractive_answer(standalone, results)
         mode = f"extractive ({llm.provider()} error: {str(exc)[:120]})"
         degraded = {"reason": "error",
                     "detail": (f"The {llm.provider()} model could not be reached, so the "

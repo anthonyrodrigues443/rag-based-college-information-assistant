@@ -1,4 +1,4 @@
-import shutil
+import tempfile
 import time
 from pathlib import Path
 
@@ -116,20 +116,21 @@ def notices():
 def site_document(doc_id: str):
     """The complete indexed text behind a citation. Public, because a citation a visitor
     cannot open is not a citation."""
-    doc = store.docs.get(doc_id)
-    if not doc:
-        raise HTTPException(status_code=404, detail="No such document")
-    return {
-        "doc_id": doc_id,
-        "title": doc.get("title", ""),
-        "kind": doc.get("kind", "page"),
-        "date": doc.get("date", ""),
-        "source": doc.get("source", ""),
-        "url": doc.get("url", ""),
-        "origin": doc.get("origin", ""),
-        "indexed_at": doc.get("indexed_at", ""),
-        "text": ingest.document_text(doc),
-    }
+    with store.lock:
+        doc = store.document(doc_id)
+        if not doc:
+            raise HTTPException(status_code=404, detail="No such document")
+        return {
+            "doc_id": doc_id,
+            "title": doc.get("title", ""),
+            "kind": doc.get("kind", "page"),
+            "date": doc.get("date", ""),
+            "source": doc.get("source", ""),
+            "url": doc.get("url", ""),
+            "origin": doc.get("origin", ""),
+            "indexed_at": doc.get("indexed_at", ""),
+            "text": ingest.document_text(doc),
+        }
 
 
 @app.post("/api/chat")
@@ -168,12 +169,14 @@ def admin_status(_=Depends(require_admin)):
     return {
         "stats": store.stats(),
         "refresh": scheduler.state,
-        "documents": sorted(store.docs.values(), key=lambda d: d.get("indexed_at", ""), reverse=True),
+        "documents": sorted(
+            ({k: v for k, v in d.items() if k != "text"} for d in store.docs.values()),
+            key=lambda d: d.get("indexed_at", ""), reverse=True),
     }
 
 
 @app.post("/api/admin/ingest/files")
-async def ingest_files(files: list[UploadFile] = File(...), _=Depends(require_admin)):
+def ingest_files(files: list[UploadFile] = File(...), _=Depends(require_admin)):
     started, results = time.perf_counter(), []
     for upload in files:
         suffix = Path(upload.filename or "").suffix.lower()
@@ -182,14 +185,28 @@ async def ingest_files(files: list[UploadFile] = File(...), _=Depends(require_ad
                             "skipped": f"unsupported file type {suffix or '(none)'}"})
             continue
         target = config.UPLOAD_DIR / Path(upload.filename).name
-        with target.open("wb") as fh:
-            shutil.copyfileobj(upload.file, fh)
-        if target.stat().st_size > MAX_UPLOAD_BYTES:
-            target.unlink(missing_ok=True)
-            results.append({"title": upload.filename, "chunks": 0, "skipped": "file over 20 MB"})
-            continue
         try:
-            results.append(ingest.index_file(target, origin="upload"))
+            # Same filesystem and original filename, so extraction and identity are
+            # unchanged. Never truncate an accepted file to validate its replacement.
+            with tempfile.TemporaryDirectory(dir=config.UPLOAD_DIR, prefix=".staging-") as temp:
+                staged = Path(temp) / target.name
+                with staged.open("wb") as fh:
+                    remaining = MAX_UPLOAD_BYTES + 1
+                    while remaining:
+                        chunk = upload.file.read(min(remaining, 1024 * 1024))
+                        if not chunk:
+                            break
+                        fh.write(chunk)
+                        remaining -= len(chunk)
+                if staged.stat().st_size > MAX_UPLOAD_BYTES:
+                    results.append({"title": upload.filename, "chunks": 0,
+                                    "skipped": "file over 20 MB"})
+                    continue
+                with store.transaction():
+                    result = ingest.index_file(staged, origin="upload")
+                    if result.get("chunks"):
+                        staged.replace(target)
+                results.append(result)
         except Exception as exc:
             results.append({"title": upload.filename, "chunks": 0, "skipped": str(exc)})
     return {"results": results, "stats": store.stats(),

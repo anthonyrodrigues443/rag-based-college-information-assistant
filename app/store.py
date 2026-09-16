@@ -1,8 +1,11 @@
 """Persisted hybrid index: FAISS vectors + BM25 over the same chunks."""
+import copy
+import hashlib
 import json
 import re
 import threading
 from datetime import datetime, timezone
+from contextlib import contextmanager
 
 import faiss
 import numpy as np
@@ -19,6 +22,10 @@ def tokenize(text: str):
 
 def now_iso():
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def doc_id_for(key: str, origin: str = "upload") -> str:
+    return hashlib.sha1(f"{origin}\x00{key}".encode("utf-8")).hexdigest()[:12]
 
 
 class Store:
@@ -55,7 +62,69 @@ class Store:
                 ]
             if self.docs_path.exists():
                 self.docs = json.loads(self.docs_path.read_text(encoding="utf-8"))
+            migrated = self._migrate_identities()
             self._rebuild_bm25()
+            if migrated:
+                self.save()
+
+    def _migrate_identities(self):
+        """Upgrade key-only IDs and repair indexes refreshed by the previous release.
+
+        Keep the newest version of each (origin, key), and retain old citation IDs as
+        aliases. Vectors follow their chunk rows, never an independently sorted list.
+        """
+        groups = {}
+        for old_id, doc in self.docs.items():
+            key = doc.get("key") or doc.get("source")
+            canonical = doc_id_for(key, doc.get("origin", "upload")) if key else old_id
+            groups.setdefault(canonical, []).append((old_id, doc))
+        winners, docs = {}, {}
+        for canonical, versions in groups.items():
+            old_id, doc = max(versions, key=lambda pair: (
+                pair[1].get("indexed_at", ""), pair[0] == canonical))
+            aliases = {alias for oid, d in versions for alias in [oid, *d.get("aliases", [])]}
+            winners[old_id] = canonical
+            docs[canonical] = {**doc, "doc_id": canonical,
+                               "aliases": sorted(aliases - {canonical})}
+        if docs == self.docs:
+            return False
+        vectors = self.index.reconstruct_n(0, self.index.ntotal)
+        rows, chunks = [], []
+        for row, chunk in enumerate(self.chunks):
+            if chunk["doc_id"] in winners:
+                rows.append(row)
+                chunks.append({**chunk, "id": len(chunks),
+                               "doc_id": winners[chunk["doc_id"]]})
+        index = faiss.IndexFlatIP(config.EMBED_DIM)
+        if rows:
+            index.add(np.asarray(vectors[rows], dtype="float32"))
+        self.docs, self.chunks, self.index = docs, chunks, index
+        return True
+
+    @contextmanager
+    def transaction(self):
+        """Restore both memory and persisted index files if an update fails."""
+        with self.lock:
+            docs, chunks = copy.deepcopy(self.docs), copy.deepcopy(self.chunks)
+            index = faiss.clone_index(self.index)
+            files = {p: p.read_bytes() if p.exists() else None
+                     for p in (self.faiss_path, self.chunks_path, self.docs_path)}
+            try:
+                yield
+            except Exception:
+                self.docs, self.chunks, self.index = docs, chunks, index
+                self._rebuild_bm25()
+                for path, data in files.items():
+                    if data is None:
+                        path.unlink(missing_ok=True)
+                    else:
+                        path.write_bytes(data)
+                raise
+
+    def document(self, doc_id):
+        """Resolve saved citation links from before the identity migration."""
+        return self.docs.get(doc_id) or next(
+            (doc for doc in self.docs.values() if doc_id in doc.get("aliases", [])), None)
 
     def save(self):
         with self.lock:
@@ -81,6 +150,7 @@ class Store:
     def add_document(self, doc_id, meta, chunks, vectors):
         """chunks: [{section, text}], vectors: (n, dim) float32 normalised."""
         with self.lock:
+            aliases = self.docs.get(doc_id, {}).get("aliases", [])
             if doc_id in self.docs:
                 self.delete_document(doc_id)
             start = len(self.chunks)
@@ -102,6 +172,7 @@ class Store:
                 "doc_id": doc_id,
                 "n_chunks": len(chunks),
                 "indexed_at": now_iso(),
+                "aliases": aliases,
             }
             self._rebuild_bm25()
             return len(chunks)

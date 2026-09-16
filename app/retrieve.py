@@ -24,6 +24,13 @@ def reciprocal_rank_fusion(*ranked_lists, k=None):
 
 def search(question: str, top_n: int = None):
     """Returns (results, debug). results are the top_n chunks after re-ranking."""
+    # Upload transactions replace vectors and chunks together. A reader must not
+    # use vector row numbers from one version with chunks from another.
+    with store.lock:
+        return _search(question, top_n)
+
+
+def _search(question: str, top_n: int = None):
     top_n = top_n or config.TOP_N_CONTEXT
     if not store.chunks:
         return [], {"dense": 0, "bm25": 0, "fused": 0, "reranked": False}
@@ -47,6 +54,16 @@ def search(question: str, top_n: int = None):
         "bm25": round(lexical_scores.get(cid, 0.0), 3),
     } for cid, score in fused[: config.TOP_K_DENSE + config.TOP_K_BM25]]
 
+    semesters = query.semesters(question)
+    if semesters:
+        scoped = []
+        for candidate in candidates:
+            mentioned = (query.semesters(f"{candidate['title']} {candidate.get('section', '')}")
+                         or query.semesters(candidate["text"]))
+            if not mentioned or mentioned & semesters:
+                scoped.append(candidate)
+        candidates = scoped
+
     reranked = False
     if config.USE_RERANKER and candidates:
         # The cross-encoder alone mis-ranks short colloquial questions ("can I get a
@@ -54,7 +71,7 @@ def search(question: str, top_n: int = None):
         # already had at rank 1. Blending it with the fusion rank keeps its precision
         # without letting it override retrieval on its own.
         raw = models.rerank_scores(expanded, [c["text"] for c in candidates])
-        best_rrf = max(c["rrf"] for c in candidates) or 1.0
+        best_rrf = max((c["rrf"] for c in candidates), default=1.0) or 1.0
         for candidate, score in zip(candidates, raw):
             candidate["rerank"] = round(score, 4)
             candidate["score"] = round(
@@ -64,7 +81,7 @@ def search(question: str, top_n: int = None):
             )
         reranked = True
     else:
-        best_rrf = max(c["rrf"] for c in candidates) or 1.0
+        best_rrf = max((c["rrf"] for c in candidates), default=1.0) or 1.0
         for candidate in candidates:
             candidate["score"] = round(candidate["rrf"] / best_rrf, 4)
 
@@ -108,6 +125,9 @@ def unsupported(question: str, results):
 
     if asked["programme"] and all(r.get("entity") == -1 for r in results):
         return "every retrieved section is about a different programme"
+
+    if not any(query.supports_detail(question, r["text"]) for r in results):
+        return "the requested identity or numeric examination score is not in the evidence"
 
     if below_threshold(results):
         return "nothing retrieved is a close enough match"
