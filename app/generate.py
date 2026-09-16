@@ -19,6 +19,51 @@ the meaning and fills in anything they referred to indirectly. Reply with the qu
 no explanation."""
 
 FOLLOW_UP_CUES = ("and ", "what about", "how about", "for the", "then ", "same for", "also ")
+REFERENCE_RE = re.compile(r"\b(?:it|its|they|their|them|that|those|these|there)\b", re.I)
+PROGRAMME_REFERENCES = {
+    "ug": re.compile(r"\b(?:BE|UG|BTECH)\b|(?i:\bb\.e\.?|\bb\.?tech\b|\bundergraduate\b|\bbachelor of engineering\b)"),
+    "pg": re.compile(r"\b(?:ME|PG|MTECH)\b|(?i:\bm\.e\.?|\bm\.?tech\b|\bpostgraduate\b|\bmaster of engineering\b)"),
+    "phd": re.compile(r"(?i:\bph\.?d\.?|\bdoctoral\b|\bresearch scholar\b)"),
+}
+FOLLOW_UP_TOPICS = ("hostel", "attendance", "revaluation", "photocopy", "scholarship",
+                    "library", "transcript", "placement", "admission", "examination")
+
+
+def local_rewrite(question, history):
+    """Retain a dependent question's topic without repeating the old request.
+
+    This fallback runs when the writing model is absent or fails. An explicit new
+    programme replaces the previous programme; a new attribute (room fee after
+    mess cost) only inherits the shared topic, never the old attribute.
+    """
+    previous = [t["content"] for t in history if t.get("role") == "user"]
+    if not previous:
+        return question
+    asked = query.entities(question)["programme"]
+    if len(asked) == 1:
+        level = next(iter(asked))
+        fragment = PROGRAMME_REFERENCES[level].sub("", question)
+        fragment = re.sub(r"\b(?:and|what|how|about|same|for|the|programme|program|also|then)\b",
+                          "", fragment, flags=re.I)
+        if not re.search(r"\w", fragment):
+            replacement = {"ug": "B.E.", "pg": "M.E.", "phd": "Ph.D."}[level]
+            rewritten = previous[-1]
+            for pattern in PROGRAMME_REFERENCES.values():
+                rewritten = pattern.sub(lambda _: replacement, rewritten)
+            if rewritten != previous[-1]:
+                return rewritten
+    for earlier in reversed(previous):
+        for topic in FOLLOW_UP_TOPICS:
+            if re.search(rf"\b{topic}\w*\b", earlier, re.I):
+                if re.search(rf"\b{topic}\w*\b", question, re.I):
+                    return question
+                return f"{question} ({topic})"
+        if not asked:
+            for pattern in PROGRAMME_REFERENCES.values():
+                match = pattern.search(earlier)
+                if match:
+                    return f"{question} ({match.group()})"
+    return question
 
 
 def rewrite_question(question: str, history) -> str:
@@ -26,7 +71,7 @@ def rewrite_question(question: str, history) -> str:
     if not history:
         return question
     lowered = question.lower().strip()
-    anaphoric = len(question.split()) <= 8 or lowered.startswith(FOLLOW_UP_CUES)
+    anaphoric = lowered.startswith(FOLLOW_UP_CUES) or REFERENCE_RE.search(question)
     if not anaphoric:
         return question
 
@@ -39,10 +84,9 @@ def rewrite_question(question: str, history) -> str:
                                  timeout=config.GEN_TIMEOUT)
         return rewritten.strip().strip('"') or question
     except llm.NoGenerator:
-        previous = [t["content"] for t in history if t.get("role") == "user"]
-        return f"{previous[-1]} {question}" if previous else question
+        return local_rewrite(question, history)
     except Exception:
-        return question
+        return local_rewrite(question, history)
 
 
 def build_context(results):
@@ -104,6 +148,10 @@ COUNT_RE = re.compile(r"\b(?:\d[\d,]*|zero|one|two|three|four|five|six|seven|eig
                       r"eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|"
                       r"nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|"
                       r"hundred|thousand)\b", re.I)
+DATE_OR_WINDOW_RE = re.compile(
+    r"\b(?:January|February|March|April|May|June|July|August|September|October|November|December|"
+    r"Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|days?|weeks?|hours?)\b"
+    r"|\b\d{1,4}[-/]\d{1,2}[-/]\d{1,4}\b", re.I)
 
 
 def ends_with_abbreviation(text: str) -> bool:
@@ -144,6 +192,8 @@ def extractive_answer(question: str, results):
             if query.programme_alignment(sentence, programme) == -1:
                 continue
             if "how many" in question.lower() and not COUNT_RE.search(sentence):
+                continue
+            if re.search(r"\b(?:deadline|last date)\b", question, re.I) and not DATE_OR_WINDOW_RE.search(sentence):
                 continue
             if len(sentence.split()) >= 4:
                 candidates.append((number, position, sentence, result))
@@ -196,6 +246,16 @@ def extractive_answer(question: str, results):
     if re.search(r"\b(?:odd|even) semester\b", section, re.I) and not re.search(
             r"\b(?:odd|even) semester\b", text, re.I):
         text = f"{section}: {text}"
+    # A student's stated attendance needs the exception as well as the general
+    # minimum. Quote its thresholds directly rather than infer eligibility from
+    # the most similar sentence (often just a reference to the separate rules).
+    if (not comparison and re.search(r"\battendance\b", question, re.I)
+            and re.search(r"\b\d+(?:\.\d+)?\s*(?:percent|%)", question, re.I)):
+        for n, passage in enumerate(results, 1):
+            if (n != number and "condonation" in passage.get("section", "").lower()
+                    and "attendance" in passage["title"].lower()):
+                qualification = passage["text"].split("\n", 1)[-1]
+                return f"{text} [{number}] {qualification} [{n}]"
     return text + f" [{number}]"
 
 

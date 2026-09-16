@@ -55,7 +55,9 @@ def refresh() -> dict:
                 if key not in seen and not (config.SEED_DIR / key).exists():
                     store.delete_document(doc["doc_id"])
                     dropped += 1
-            elif doc.get("url"):
+            # A file may include a provenance URL without being a URL import.
+            # Only URL imports use that URL as their stable identity.
+            elif doc.get("url") and key == doc["url"]:
                 try:
                     ingest.index_url(doc["url"], origin=doc.get("origin", "upload"))
                     refetched += 1

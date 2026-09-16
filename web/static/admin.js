@@ -160,31 +160,41 @@
 
   // ---------------------------------------------------------------- urls / text
   $("add-urls").addEventListener("click", async () => {
-    const urls = $("urls").value.split("\n").map(u => u.trim()).filter(Boolean);
+    const submitted = $("urls").value;
+    const urls = submitted.split("\n").map(u => u.trim()).filter(Boolean);
     if (!urls.length) return;
     log(`fetching ${urls.length} URL(s)...`);
     try {
-      report(await api("/api/admin/ingest/urls", {
+      const payload = await api("/api/admin/ingest/urls", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ urls }),
-      }));
-      $("urls").value = "";
+      });
+      report(payload);
+      if ($("urls").value === submitted) {
+        $("urls").value = urls.filter((url, i) => !payload.results[i]?.chunks).join("\n");
+      }
     } catch (err) { log("ERROR  " + err.message); }
   });
 
   $("add-text").addEventListener("click", async () => {
-    const title = $("text-title").value.trim();
-    const text = $("text-body").value.trim();
+    const submittedTitle = $("text-title").value;
+    const submittedText = $("text-body").value;
+    const title = submittedTitle.trim();
+    const text = submittedText.trim();
     if (!text) return;
     try {
-      report(await api("/api/admin/ingest/text", {
+      const payload = await api("/api/admin/ingest/text", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, text }),
-      }));
-      $("text-title").value = "";
-      $("text-body").value = "";
+      });
+      report(payload);
+      if (payload.results[0]?.chunks && $("text-title").value === submittedTitle
+          && $("text-body").value === submittedText) {
+        $("text-title").value = "";
+        $("text-body").value = "";
+      }
     } catch (err) { log("ERROR  " + err.message); }
   });
 

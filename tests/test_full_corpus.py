@@ -93,3 +93,45 @@ def test_refresh_is_idempotent_on_full_corpus(full_corpus):
     after = full_corpus.stats()
     for key in ("documents", "chunks", "vectors"):
         assert counts[key] == after[key]
+
+
+@pytest.mark.parametrize("failure", ["none", "error", "timeout"])
+@pytest.mark.parametrize("previous,question,required,forbidden", [
+    ("What is the tuition fee for BE?", "And for ME?", ["96,000"], ["1,45,000", "72,500"]),
+    ("What is the tuition fee for ME?", "And for BE?", ["1,45,000"], ["96,000"]),
+    ("How much does hostel mess cost?", "And the annual room fee?", ["62,000", "48,000"], ["4,200"]),
+    ("What is the revaluation fee?", "What is the hostel curfew?", ["22:30"], ["800", "1,000"]),
+])
+def test_followups_prioritise_latest_question_without_model(
+        full_corpus, monkeypatch, failure, previous, question, required, forbidden):
+    def fail(*args, **kwargs):
+        raise {"none": generate.llm.NoGenerator, "error": RuntimeError,
+               "timeout": generate.llm.Timeout}[failure]("QA model unavailable")
+    monkeypatch.setattr(generate.llm, "complete", fail)
+    result = generate.answer(question, [{"role": "user", "content": previous}])
+    assert not result["refused"], result
+    assert all(x in result["answer"] for x in required), result
+    assert not any(x in result["answer"] for x in forbidden), result
+    assert result["citations"]
+
+
+@pytest.mark.parametrize("institution", ["Oxford", "oxford", "Harvard", "stanford"])
+def test_bare_institution_names_are_not_answered_with_local_rules(full_corpus, institution):
+    result = generate.answer(f"What is the attendance policy at {institution}?")
+    assert result["refused"] and not result["citations"]
+
+
+def test_semester_vi_cannot_use_semester_v_payment_extension(full_corpus):
+    result = generate.answer("What is the Semester VI tuition fee payment deadline?")
+    assert result["refused"], result
+
+
+@pytest.mark.parametrize("percentage", ["64 percent", "70 percent", "64%"])
+def test_numeric_attendance_answer_includes_condonation_limits(full_corpus, percentage):
+    result = generate.answer(f"Can I attend exams with {percentage} attendance?")
+    assert not result["refused"]
+    assert "75" in result["answer"]
+    assert "65" in result["answer"]
+    assert "not permitted" in result["answer"]
+    assert "medical" in result["answer"]
+    assert len(result["citations"]) == 2

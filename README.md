@@ -59,6 +59,9 @@ ranked passage when that passage contains the requested amount or rule. It uses 
 cross-encoder already loaded for retrieval; no second language model is required.
 For follow-up questions, rewriting and answer generation share the same timeout budget;
 a stalled rewrite cannot start a second full wait before fallback.
+If rewriting is unavailable, dependent questions retain a recognised topic and replace
+explicit programme names. Independent short questions start a new topic. These local
+rules cover the tested follow-ups; they are not a general conversation-understanding model.
 
 ## How a question is answered
 
@@ -175,6 +178,9 @@ backlog limits, opening hours and hostel eligibility, rather than only matching 
 Additional tests load legacy and already duplicated indexes, verify vector/chunk alignment and
 old citation links, and exercise rejected replacements, extraction failures, partial index-write
 failures and failed file publication through the upload API.
+Follow-up tests cover programme changes, topic changes and changed hostel attributes with
+the generator absent, failing or timing out. Numeric attendance answers include the
+condonation conditions, and an unavailable Semester VI deadline cannot use a Semester V notice.
 
 ### Existing installations
 
@@ -188,6 +194,11 @@ updates restore the previous in-memory and persisted index. Source links read th
 indexed text, so an edited or rejected file cannot silently change the evidence behind a
 citation. For a legacy document without a saved text snapshot, the source is reconstructed
 from its indexed chunks until its next successful refresh.
+
+Refresh only re-fetches documents imported by URL. A source URL in an uploaded file's
+metadata is a provenance link; it does not turn that file into a URL import or allow a
+remote 404 to remove it. The admin forms retain rejected text and unsuccessful URLs so
+staff can correct them and retry.
 
 ## API
 

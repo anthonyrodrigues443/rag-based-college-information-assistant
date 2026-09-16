@@ -78,6 +78,7 @@ GLOSSARY = (
     ("mess bill", "mess charges per month"),
     ("backlog subjects", "KT subjects registration"),
     ("duplicate identity card", "replacement for lost identity card"),
+    ("curfew", "hostel entry closes"),
 )
 
 WORD_RE = re.compile(r"[A-Za-z][A-Za-z.]*")
@@ -99,7 +100,8 @@ NAME_WORD = rf"(?!(?:{NAME_STOP_WORDS})\b)[a-z][a-z.'-]*"
 NAME = rf"{NAME_WORD}(?:\s+{NAME_WORD}){{0,3}}"
 INSTITUTION_TYPE = r"(?:University|College|Institute|Polytechnic|Vidyapeeth|Vishwavidyalaya)"
 INSTITUTION_RE = re.compile(
-    rf"\b(?:IIT|NIT|IIIT|IIM|BITS|VJTI|COEP|SPIT|NMIMS|DTU|VIT|SRM|MIT)\b(?:\s+{NAME_WORD})?"
+    rf"\b(?:Oxford|Harvard|Stanford|Cambridge|Yale|Princeton)\b(?:\s+University|\s+College)?"
+    rf"|\b(?:IIT|NIT|IIIT|IIM|BITS|VJTI|COEP|SPIT|NMIMS|DTU|VIT|SRM|MIT)\b(?:\s+{NAME_WORD})?"
     rf"|\b{NAME}\s+{INSTITUTION_TYPE}\b(?:\s+of\s+{NAME}(?:\s+(?:and|&)\s+{NAME})?)?"
     rf"|\b{INSTITUTION_TYPE}\s+of\s+{NAME}(?:\s+(?:and|&)\s+{NAME})?",
     re.I,

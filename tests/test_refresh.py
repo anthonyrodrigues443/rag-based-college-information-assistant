@@ -115,3 +115,28 @@ def test_only_a_status_failure_counts_as_withdrawn():
     assert not ingest.is_withdrawn(server_error)
     assert not ingest.is_withdrawn(httpx.ConnectTimeout("timed out"))
     assert not ingest.is_withdrawn(OSError("network is down"))
+
+
+@pytest.mark.parametrize("status", [200, 404, 410])
+def test_file_provenance_url_never_turns_upload_into_url_import(indexed, served, tmp_path, status):
+    upload = tmp_path / "linked-club-notice.md"
+    upload.write_text(
+        f"---\ntitle: Uploaded robotics workshop policy\nurl: {served}\n---\n"
+        "The robotics workshop registration fee is Rs. 700 per session. Students must "
+        "register with the department coordinator before arrival and bring a valid "
+        "identity card to attend the weekly practical workshop.\n", encoding="utf-8")
+    ingest.index_file(upload, origin="upload")
+    doc_id = ingest.doc_id_for(upload.name, "upload")
+    url_id = ingest.doc_id_for(served, "upload")
+    original = ingest.document_text(store.docs[doc_id])
+    Fixture.status = status
+    try:
+        result = scheduler.refresh()
+        assert doc_id in store.docs
+        assert ingest.document_text(store.docs[doc_id]) == original
+        assert url_id not in store.docs
+        assert result["urls_refetched"] == 0
+        assert result["urls_withdrawn"] == 0
+    finally:
+        store.delete_document(doc_id)
+        store.delete_document(url_id)
