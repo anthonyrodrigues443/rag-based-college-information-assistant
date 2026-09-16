@@ -189,6 +189,8 @@ def extractive_answer(question: str, results):
             continue
         body = result["text"].split("\n", 1)[-1]
         for position, sentence in enumerate(split_sentences(body)):
+            if not query.supports_detail(question, sentence):
+                continue
             if query.programme_alignment(sentence, programme) == -1:
                 continue
             if "how many" in question.lower() and not COUNT_RE.search(sentence):
@@ -241,6 +243,15 @@ def extractive_answer(question: str, results):
                             (annual_cost and re.search(r"\bRs\.", text, re.I))):
             picked.append((pos, text))
             break
+    # A selected exception can refer to an earlier rule ("below this level").
+    # Keep that antecedent when it survived the same entity/detail constraints.
+    by_position = {pos: text for n, pos, text, _ in candidates if n == number}
+    selected = dict(picked)
+    for pos, sentence in picked:
+        if (re.search(r"\b(?:this|that|these|those)\s+(?:level|limit|rate|amount|date|rules?)\b",
+                      sentence, re.I) and pos - 1 in by_position):
+            selected[pos - 1] = by_position[pos - 1]
+    picked = list(selected.items())
     text = " ".join(s for _, s in sorted(picked))
     section = result.get("section", "")
     if re.search(r"\b(?:odd|even) semester\b", section, re.I) and not re.search(

@@ -188,3 +188,50 @@ def semesters(text: str) -> set[int]:
         ("i", "ii", "iii", "iv", "v", "vi", "vii", "viii"), 1)}
     found = re.findall(r"\bsemester\s+(viii|vii|vi|iv|iii|ii|v|i|[1-8])\b", text.lower())
     return {roman[token] if token in roman else int(token) for token in found}
+
+
+OFFICE_RE = re.compile(r"\b(principal|director|registrar|librarian|dean)\b", re.I)
+PERSON_NAME_RE = re.compile(
+    r"\b(?:(?:Dr|Prof|Mr|Mrs|Ms)\.\s+)?"
+    r"[A-Z][a-z]+(?:[-'][A-Za-z]+)*(?:\s+(?:[A-Z]\.\s*)?[A-Z][a-z]+(?:[-'][A-Za-z]+)*)+\b")
+NON_PERSON_WORDS = {"the", "institute", "university", "college", "department", "principal",
+                    "director", "registrar", "librarian", "dean", "engineering", "technology",
+                    "admission", "admissions", "governing", "body"}
+
+
+def requested_detail(question: str):
+    """Narrow identity and numeric score requests need more than topical evidence."""
+    office = OFFICE_RE.search(question)
+    if office and (re.search(r"\bwho\s+(?:is|was)\b", question, re.I)
+                   or re.search(r"\bname\b", question, re.I)):
+        return "person", office.group(1).lower()
+    if (re.search(r"\b(?:minimum|cut[ -]?off|at least)\b", question, re.I)
+            and re.search(r"\b(?:score|marks)\b", question, re.I)):
+        exam = re.search(r"\b(?:GATE|CET|JEE|NEET|CAT|GRE|GMAT)\b", question, re.I)
+        if exam:
+            return "exam-score", exam.group().lower()
+    return None
+
+
+def supports_detail(question: str, text: str) -> bool:
+    detail = requested_detail(question)
+    if not detail:
+        return True
+    kind, subject = detail
+    if not re.search(rf"\b{re.escape(subject)}\b", text, re.I):
+        return False
+    if kind == "person":
+        # A role definition or an institution name is not the name of its holder.
+        for match in PERSON_NAME_RE.finditer(text):
+            words = set(normalise_name(match.group()).split()) - {"dr", "prof", "mr", "mrs", "ms"}
+            if len(words) >= 2 and not words & NON_PERSON_WORDS:
+                return True
+        return False
+    # Require a number attached to the named examination/score, not a year or
+    # an undergraduate percentage elsewhere in an admissions passage.
+    exam = re.escape(subject)
+    return bool(re.search(
+        rf"\b{exam}\s+(?:(?:qualifying|minimum|cut[ -]?off)\s+)?(?:score|marks|cut[ -]?off)"
+        r"\s*(?:(?:is|of|must be|should be|at least|minimum|above|greater than)\s*)*[:=]?\s*\d+(?:\.\d+)?\b"
+        rf"|\b(?:score|marks)\s+(?:of\s+|at least\s+)?\d+(?:\.\d+)?\s+(?:in|on)\s+(?:the\s+)?{exam}\b",
+        text, re.I))

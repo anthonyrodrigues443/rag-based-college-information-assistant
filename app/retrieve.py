@@ -126,6 +126,9 @@ def unsupported(question: str, results):
     if asked["programme"] and all(r.get("entity") == -1 for r in results):
         return "every retrieved section is about a different programme"
 
+    if not any(query.supports_detail(question, r["text"]) for r in results):
+        return "the requested identity or numeric examination score is not in the evidence"
+
     if below_threshold(results):
         return "nothing retrieved is a close enough match"
     return None

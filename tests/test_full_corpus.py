@@ -40,6 +40,7 @@ def full_corpus(tmp_path_factory):
     ("What happens if my attendance is below 65 percent?", ["below 65", "not permitted"], ["may condone"]),
     ("How much does a transcript cost and how long does it take?", ["750", "ten working days"], []),
     ("How do I get a duplicate identity card?", ["200", "complaint", "acknowledgement"], []),
+    ("What is the attendance rule at this institute?", ["75", "65", "medical"], []),
 ])
 def test_answer_contains_the_requested_fact(full_corpus, question, required, forbidden):
     result = generate.answer(question)
@@ -135,3 +136,33 @@ def test_numeric_attendance_answer_includes_condonation_limits(full_corpus, perc
     assert "not permitted" in result["answer"]
     assert "medical" in result["answer"]
     assert len(result["citations"]) == 2
+
+
+@pytest.mark.parametrize("question", [
+    "Who is the principal?", "What is the principal's name?",
+    "What is the minimum GATE score for admission?",
+])
+def test_related_text_does_not_answer_a_missing_specific_fact(full_corpus, monkeypatch, question):
+    def must_not_generate(*args, **kwargs):
+        pytest.fail("a missing identity or score reached generation")
+    monkeypatch.setattr(generate.llm, "complete", must_not_generate)
+    result = generate.answer(question)
+    assert result["refused"] and not result["citations"], result
+
+
+@pytest.mark.parametrize("question,text,expected", [
+    ("Who is the principal?", "The principal is Dr. Anita Rao.", True),
+    ("Who is the principal?", "Anita Rao is the principal of the institute.", True),
+    ("Who is the principal?", "The principal heads the Institute of Engineering and Technology.", False),
+    ("What is the minimum GATE score?", "The minimum GATE score is 600 for M.E. admission.", True),
+    ("What is the minimum GATE score?", "A score of 600 in GATE is required for M.E. admission.", True),
+    ("What is the minimum GATE score?", "In 2026, applicants with a valid GATE score receive priority.", False),
+])
+def test_specific_fact_evidence_still_allows_named_people_and_numeric_scores(question, text, expected):
+    assert query.supports_detail(question, text) is expected
+    passage = {"title": "College administration and admission", "text": "Section\n" + text,
+               "section": "Details", "entity": 1}
+    result = generate.extractive_answer(question, [passage])
+    assert (result != config.REFUSAL_TEXT) is expected
+    if expected:
+        assert text in result and "[1]" in result
